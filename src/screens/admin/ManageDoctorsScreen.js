@@ -1,66 +1,78 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// src/screens/admin/ManageDoctorsScreen.js
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
+  TextInput,
+  FlatList,
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Image,
+  StatusBar,
 } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../api/supabase';
 import { getAllDoctorsService, deleteDoctorService } from '../../services/doctor/doctorService';
 import { styles } from '../../styles/admin/ManageDoctorsStyles';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 
 export default function ManageDoctorsScreen() {
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+  const [doctors, setDoctors] = useState([]);
+  const [filteredDoctors, setFilteredDoctors] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadDoctors = async (isRefresh = false) => {
+  const fetchDoctors = async () => {
     try {
-      if (!isRefresh) setLoading(true);
       const data = await getAllDoctorsService();
-      setDoctors(data || []);
+      setDoctors(data);
+      setFilteredDoctors(data);
     } catch (error) {
-      Alert.alert('Lỗi', error.message || 'Không thể tải dữ liệu bác sĩ');
+      Alert.alert('Lỗi', 'Không thể tải danh sách bác sĩ');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadDoctors();
-    }, [])
-  );
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadDoctors(true);
+  useEffect(() => {
+    fetchDoctors();
   }, []);
 
-  const handleDelete = (id, name) => {
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtered = doctors.filter(doc =>
+      doc.user_profiles?.full_name?.toLowerCase().includes(query) ||
+      doc.departments?.name?.toLowerCase().includes(query) ||
+      doc.specialization?.toLowerCase().includes(query)
+    );
+    setFilteredDoctors(filtered);
+  }, [searchQuery, doctors]);
+
+  const handleDelete = (doctorId, doctorName) => {
     Alert.alert(
-      'Xác nhận xoá',
-      `Bạn có chắc chắn muốn xoá bác sĩ:\n${name || 'Không rõ tên'}?`,
+      'Xác nhận xóa',
+      `Bạn có chắc muốn xóa bác sĩ ${doctorName}?`,
       [
-        { text: 'Huỷ', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Xoá',
+          text: 'Xóa',
           style: 'destructive',
           onPress: async () => {
+            setLoading(true);
             try {
-              setLoading(true);
-              await deleteDoctorService(id);
-              Alert.alert('Thành công', 'Đã xoá bác sĩ');
-              loadDoctors();
+              const result = await deleteDoctorService(doctorId);
+              if (result.success) {
+                Alert.alert('Thành công', result.message);
+                fetchDoctors();
+              } else {
+                Alert.alert('Lỗi', result.message);
+              }
             } catch (error) {
-              Alert.alert('Lỗi', error.message);
+              Alert.alert('Lỗi', 'Xóa thất bại');
             } finally {
               setLoading(false);
             }
@@ -70,117 +82,93 @@ export default function ManageDoctorsScreen() {
     );
   };
 
-  const renderDoctor = ({ item }) => {
-    const profile = item.user_profiles;
-    const dept = item.departments;
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.avatarContainer}>
-          {profile?.avatar_url ? (
-            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={28} color="#aaa" />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.infoContainer}>
-          <Text style={styles.name} numberOfLines={1}>
-            {profile?.full_name || 'Chưa có tên'}
-          </Text>
-          <Text style={styles.email} numberOfLines={1}>
-            {profile?.email || 'Không có email'}
-          </Text>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>Khoa:</Text>
-            <Text style={styles.value}>{dept?.name || 'Chưa gán'}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>KN:</Text>
-            <Text style={styles.value}>{item.experience_years || 0} năm</Text>
-            {item.room_number && (
-              <>
-                <Text style={styles.separator}>|</Text>
-                <Text style={styles.label}>Phòng:</Text>
-                <Text style={styles.value}>{item.room_number}</Text>
-              </>
-            )}
-          </View>
-
-          {item.specialization && (
-            <Text style={styles.specialization} numberOfLines={1}>
-              Chuyên: {item.specialization}
-            </Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={() => handleDelete(item.id, profile?.full_name)}
-        >
-          <MaterialIcons name="delete-forever" size={22} color="#fff" />
-        </TouchableOpacity>
+  const renderDoctorItem = ({ item }) => (
+    <View style={styles.doctorCard}>
+      <View style={styles.doctorInfo}>
+        <Text style={styles.doctorName}>{item.user_profiles?.full_name || 'Không tên'}</Text>
+        <Text style={styles.doctorDetail}>
+          {item.departments?.name || 'Chưa có khoa'}
+        </Text>
+        <Text style={styles.doctorDetail}>Chuyên môn: {item.specialization || 'Chưa cập nhật'}</Text>
+        <Text style={styles.doctorDetail}>Phòng: {item.room_number || 'Chưa có'}</Text>
       </View>
-    );
-  };
 
-  const renderSkeleton = () => (
-    <View style={styles.card}>
-      <View style={styles.avatarPlaceholder} />
-      <View style={styles.infoContainer}>
-        <View style={styles.skeletonLine} />
-        <View style={[styles.skeletonLine, { width: '70%', marginTop: 6 }]} />
-        <View style={[styles.skeletonLine, { width: '50%', marginTop: 12 }]} />
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate('Sửa bác sĩ', { doctorId: item.id })}
+        >
+          <Icon name="pencil" size={18} color="#3B82F6" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDelete(item.id, item.user_profiles?.full_name)}
+        >
+          <Icon name="trash" size={18} color="#EF4444" />
+        </TouchableOpacity>
       </View>
     </View>
   );
 
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#10B981" />
+        <Text style={styles.loadingText}>Đang tải danh sách bác sĩ...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>Quản Lý Bác Sĩ</Text>
+        <Text style={styles.headerTitle}>Danh sách bác sĩ</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('Tạo bác sĩ')}
+          onPress={() => navigation.navigate('Thêm bác sĩ')}
         >
-          <Ionicons name="add" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Thêm</Text>
+          <Icon name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {loading && doctors.length === 0 ? (
-        <View style={{ paddingHorizontal: 16 }}>
-          {[...Array(3)].map((_, i) => (
-            <View key={i}>{renderSkeleton()}</View>
-          ))}
-        </View>
-      ) : doctors.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="medkit-outline" size={60} color="#ddd" />
-          <Text style={styles.emptyText}>Chưa có bác sĩ nào</Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => navigation.navigate('Tạo bác sĩ')}
-          >
-            <Text style={styles.emptyButtonText}>Tạo bác sĩ đầu tiên</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={doctors}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderDoctor}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
+      {/* SEARCH BAR */}
+      <View style={styles.searchContainer}>
+        <Icon name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Tìm bác sĩ, khoa, chuyên môn..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchInput}
         />
-      )}
+        {searchQuery !== '' && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Icon name="close-circle" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* DOCTOR LIST */}
+      <FlatList
+        data={filteredDoctors}
+        keyExtractor={(item) => item.id}
+        renderItem={renderDoctorItem}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            fetchDoctors();
+          }} />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Icon name="people-outline" size={60} color="#9CA3AF" />
+            <Text style={styles.emptyText}>Chưa có bác sĩ nào</Text>
+          </View>
+        }
+      />
     </View>
   );
 }

@@ -1,3 +1,4 @@
+// src/navigation/AdminTabs.js
 import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +11,8 @@ import ManagePatientsScreen from '../screens/admin/ManagePatientsScreen';
 import AdminDashboard from '../screens/admin/AdminDashboard';
 import CreateUserScreen from '../screens/admin/CreateUserScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
-import CreateStaffAccountScreen from '../screens/admin/CreateStaffAccountScreen';
 import CreateDoctorAccountScreen from '../screens/admin/CreateDoctorAccountScreen';
+import CreateDoctorScheduleScreen from '../screens/admin/CreateDoctorScheduleScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -39,6 +40,7 @@ export default function AdminTabs() {
             'Tạo tài khoản': 'person-add-outline',
             'Tạo bác sĩ': 'briefcase-outline',
             'Báo cáo': 'bar-chart-outline',
+            'Lịch làm việc': 'calendar-outline', // ĐỔI TÊN ĐỂ GỌN
           };
           return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={size} color={color} />;
         },
@@ -52,6 +54,12 @@ export default function AdminTabs() {
       <Drawer.Screen name="Tạo tài khoản" component={CreateUserScreen} />
       <Drawer.Screen name="Tạo bác sĩ" component={CreateDoctorAccountScreen} />
       <Drawer.Screen name="Báo cáo" component={ReportsScreen} />
+      
+      {/* ĐỔI TÊN ROUTE TỪ "Lịch làm việc bác sĩ" → "Lịch làm việc" */}
+      <Drawer.Screen 
+        name="Lịch làm việc" 
+        component={CreateDoctorScheduleScreen} 
+      />
     </Drawer.Navigator>
   );
 }

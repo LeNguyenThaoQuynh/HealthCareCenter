@@ -1,5 +1,5 @@
 // src/screens/patient/Book_appointment/BookByDate/BookByDate.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,18 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../../../../api/supabase';
+
+// Định nghĩa màu sắc custom
+const AVAILABLE_COLOR_BG = '#ECFDF5'; // Nền xanh lá nhạt cho ngày có lịch
+const AVAILABLE_COLOR_BORDER = '#10B981'; // Viền xanh lá đậm
+const AVAILABLE_TEXT_COLOR = '#111827'; // <--- ĐÃ ĐỔI SANG MÀU ĐEN ĐẬM HƠN
+const SELECTED_COLOR = '#059669'; // Màu nền khi ngày được chọn
 
 export default function BookByDate() {
   const navigation = useNavigation();
@@ -19,112 +26,137 @@ export default function BookByDate() {
   const [markedDates, setMarkedDates] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // CHUYỂN TIẾNG VIỆT → TIẾNG ANH
-  const vietnameseToEnglish = (viDay) => {
-    const map = {
-      'Thứ 2': 'Monday', 'Thứ 3': 'Tuesday', 'Thứ 4': 'Wednesday',
-      'Thứ 5': 'Thursday', 'Thứ 6': 'Friday', 'Thứ 7': 'Saturday',
-      'Chủ nhật': 'Sunday',
-    };
-    return map[viDay] || viDay;
-  };
-
-  // LẤY NGÀY CÓ LỊCH
   const fetchAvailableDates = async () => {
     setLoading(true);
     try {
-      const { data: templates, error } = await supabase
-        .from('appointment_slots')
-        .select('day_of_week')
-        .eq('is_template', true);
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .rpc('get_available_dates', { 
+          from_date: today, 
+          days_ahead: 90 
+        });
 
       if (error) throw error;
-      if (!templates || templates.length === 0) {
-        Alert.alert('Thông báo', 'Chưa có lịch làm việc nào được thiết lập.');
-        setLoading(false);
-        return;
-      }
 
-      const today = new Date();
-      const dates = {};
-
-      for (let i = 0; i < 60; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
-        const dayOfWeekEn = date.toLocaleString('en-US', { weekday: 'long' });
-
-        const hasTemplate = templates.some(t =>
-          vietnameseToEnglish(t.day_of_week) === dayOfWeekEn
-        );
-
-        if (hasTemplate) {
-          dates[dateStr] = {
-            marked: true,
-            dotColor: '#10B981',
-            selectedColor: '#059669',
+      const marked = {};
+      if (data && data.length > 0) {
+        data.forEach(item => {
+          // *** SỬ DỤNG customStyles cho ngày có lịch ***
+          marked[item.work_date] = {
+            customStyles: {
+              container: {
+                backgroundColor: AVAILABLE_COLOR_BG,
+                borderRadius: 16, // Bo tròn
+                borderWidth: 1,
+                borderColor: AVAILABLE_COLOR_BORDER,
+              },
+              text: {
+                color: AVAILABLE_TEXT_COLOR, // Màu chữ đã được làm đậm
+                fontWeight: '700',
+              },
+            },
+            isAvailable: true, // Thêm flag để kiểm tra
           };
-        }
+        });
       }
 
-      setMarkedDates(dates);
+      // Đặt lại style cho ngày đã chọn (nếu có)
+      if (selectedDate && marked[selectedDate]) {
+        marked[selectedDate] = {
+          ...marked[selectedDate],
+          selected: true,
+          customStyles: {
+            container: {
+              backgroundColor: SELECTED_COLOR, // Màu nền xanh đậm khi chọn
+              borderRadius: 16,
+            },
+            text: {
+              color: '#FFFFFF', // Màu chữ trắng khi chọn
+              fontWeight: '700',
+            },
+          },
+        };
+      }
+
+      setMarkedDates(marked);
     } catch (err) {
-      console.error('Lỗi lấy ngày:', err);
-      Alert.alert('Lỗi', 'Không thể tải lịch khám.');
+      console.error('Lỗi tải lịch:', err);
+      Alert.alert('Lỗi', 'Không thể tải lịch. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
   };
 
-  // XỬ LÝ CHỌN NGÀY
-  const handleDayPress = async (day) => {
-    if (!markedDates[day.dateString]) {
+  useFocusEffect(
+    useCallback(() => {
+      fetchAvailableDates();
+    }, [])
+  );
+
+  const handleDayPress = (day) => {
+    // Kiểm tra bằng flag isAvailable
+    if (!markedDates[day.dateString]?.isAvailable) { 
       Alert.alert('Không thể đặt', 'Ngày này không có khung giờ khám.');
       return;
     }
 
-    setLoading(true);
-    try {
-      // TẠO SLOT
-      const { error: rpcError } = await supabase.rpc('generate_slots_for_date_rpc', {
-        target_date: day.dateString,
-      });
-      if (rpcError) throw rpcError;
+    // Cập nhật markedDates để thay đổi style ngày cũ và ngày mới
+    setMarkedDates(prev => {
+        const newMarkedDates = { ...prev };
 
-      // KIỂM TRA SLOT TRỐNG
-      const { data: hasSlot, error: checkError } = await supabase
-        .rpc('has_available_slots', { target_date: day.dateString });
+        // 1. Đặt lại style cho ngày cũ (nếu có)
+        if (selectedDate && newMarkedDates[selectedDate]) {
+            newMarkedDates[selectedDate] = {
+                ...newMarkedDates[selectedDate],
+                selected: false, 
+                customStyles: {
+                    container: {
+                        backgroundColor: AVAILABLE_COLOR_BG,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: AVAILABLE_COLOR_BORDER,
+                    },
+                    text: {
+                        color: AVAILABLE_TEXT_COLOR,
+                        fontWeight: '700',
+                    },
+                },
+            };
+        }
 
-      if (checkError || !hasSlot) {
-        Alert.alert('Hết chỗ', 'Ngày này hiện đã kín lịch. Vui lòng chọn ngày khác.');
-        setLoading(false);
-        return;
-      }
-
-      setSelectedDate(day.dateString);
-      navigation.navigate('SelectDepartment', { date: day.dateString });
-
-    } catch (err) {
-      console.error('Lỗi tạo slot:', err);
-      Alert.alert('Lỗi', 'Không thể tạo lịch. Vui lòng thử lại.');
-    } finally {
-      setLoading(false);
-    }
+        // 2. Đặt style cho ngày mới được chọn
+        newMarkedDates[day.dateString] = {
+            ...newMarkedDates[day.dateString],
+            selected: true, 
+            customStyles: {
+                container: {
+                    backgroundColor: SELECTED_COLOR, // Màu nền xanh đậm
+                    borderRadius: 16,
+                },
+                text: {
+                    color: '#FFFFFF', // Màu chữ trắng
+                    fontWeight: '700',
+                },
+            },
+        };
+        return newMarkedDates;
+    });
+    
+    setSelectedDate(day.dateString);
+    navigation.navigate('SelectDepartment', { date: day.dateString });
   };
-
-  useEffect(() => {
-    fetchAvailableDates();
-  }, []);
 
   return (
     <View style={styles.container}>
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.title}>Chọn ngày khám</Text>
       </View>
 
+      {/* LOADING */}
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -132,30 +164,21 @@ export default function BookByDate() {
         </View>
       )}
 
+      {/* CALENDAR */}
       <View style={styles.calendarContainer}>
         <Calendar
           onDayPress={handleDayPress}
-          markedDates={{
-            ...markedDates,
-            [selectedDate]: {
-              ...(markedDates[selectedDate] || {}),
-              selected: true,
-              selectedColor: '#059669',
-            },
-          }}
+          markingType={'custom'}
+          markedDates={markedDates}
           minDate={new Date().toISOString().split('T')[0]}
           theme={{
             backgroundColor: '#ffffff',
             calendarBackground: '#ffffff',
             textSectionTitleColor: '#1F2937',
-            selectedDayBackgroundColor: '#059669',
-            selectedDayTextColor: '#ffffff',
             todayTextColor: '#10B981',
             todayBackgroundColor: '#ECFDF5',
             dayTextColor: '#1F2937',
             textDisabledColor: '#D1D5DB',
-            dotColor: '#10B981',
-            selectedDotColor: '#ffffff',
             arrowColor: '#4B5563',
             monthTextColor: '#1F2937',
             textDayFontWeight: '600',
@@ -165,23 +188,31 @@ export default function BookByDate() {
         />
       </View>
 
+      {/* LEGEND */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.legendText}>Ngày có thể chọn</Text>
+          {/* Legend mô phỏng kiểu bo tròn */}
+          <View style={[styles.dot, { 
+            backgroundColor: AVAILABLE_COLOR_BG, 
+            borderWidth: 1, 
+            borderColor: AVAILABLE_COLOR_BORDER,
+            borderRadius: 8, 
+          }]} />
+          <Text style={styles.legendText}>Có lịch khám</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: '#E5E7EB' }]} />
-          <Text style={styles.legendText}>Ngày ngoài vùng đăng ký khám</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: '#FB923C' }]} />
-          <Text style={styles.legendText}>Ngày nghỉ, lễ, tết</Text>
+          <View style={[styles.dot, { 
+            backgroundColor: '#E5E7EB',
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            borderRadius: 8,
+          }]} />
+          <Text style={styles.legendText}>Không có lịch</Text>
         </View>
       </View>
 
       <Text style={styles.note}>
-        Vui lòng bấm chọn ngày có chấm xanh để đặt khám.
+        Bấm vào ngày có màu xanh để tiếp tục đặt khám.
       </Text>
     </View>
   );
@@ -199,17 +230,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  backButton: { padding: 4 },
   title: { fontSize: 20, fontWeight: '700', marginLeft: 12, color: '#1F2937' },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
   loadingText: { marginTop: 12, color: '#6B7280', fontSize: 15 },
   calendarContainer: {
-    margin: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 8,
@@ -219,16 +252,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
   },
-  legend: { marginHorizontal: 20, marginTop: 10 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
-  dot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
+  legend: { 
+    marginHorizontal: 20, 
+    marginTop: 16, 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    gap: 20,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
+  dot: { 
+    width: 14, 
+    height: 14, 
+    borderRadius: 7, 
+    marginRight: 10,
+  },
   legendText: { fontSize: 13, color: '#6B7280' },
   note: {
     marginHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: 32,
     fontSize: 14,
-    color: '#1F2937',
+    color: '#374151',
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 20,

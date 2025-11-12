@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -14,191 +15,210 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function BookingOptionsScreen() {
   const navigation = useNavigation();
+  const fadeAnim = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   const options = [
     {
-      title: 'Theo Bác sĩ',
-      subtitle: 'Chọn bác sĩ bạn tin tưởng',
+      title: 'Theo Bác sĩ chưa làm',
+      subtitle: 'P.anh mệt rồi chưa làm ',
       icon: 'person-outline',
       screen: 'BookByDoctor',
-      gradient: ['#7C3AED', '#A78BFA'],
+      gradient: ['#6D28D9', '#A78BFA'],
       badge: 'PHỔ BIẾN',
       badgeBg: '#FEF3C7',
       badgeText: '#92400E',
     },
     {
       title: 'Theo Ngày',
-      subtitle: 'Chọn ngày và khung giờ',
+      subtitle: 'Chọn ngày và khung giờ phù hợp',
       icon: 'calendar-outline',
       screen: 'BookByDate',
-      gradient: ['#059669', '#34D399'],
+      gradient: ['#047857', '#34D399'],
     },
   ];
 
-  const OptionCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate(item.screen)}
-      activeOpacity={0.92}
-    >
-      <LinearGradient
-        colors={item.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        {/* Icon tròn với hiệu ứng kính mờ */}
-        <View style={styles.iconWrapper}>
-          <View style={styles.iconInner}>
-            <Ionicons name={item.icon} size={34} color="#FFF" />
-          </View>
-        </View>
+  const OptionCard = ({ item, index }) => {
+    const cardAnim = new Animated.Value(0);
 
-        {/* Text */}
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.subtitle}>{item.subtitle}</Text>
-        </View>
+    React.useEffect(() => {
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 150,
+        useNativeDriver: true,
+      }).start();
+    }, [cardAnim, index]);
 
-        {/* Right: Badge + X */}
-        <View style={styles.right}>
-          {item.badge && (
-            <View style={[styles.badge, { backgroundColor: item.badgeBg }]}>
-              <Text style={[styles.badgeText, { color: item.badgeText }]}>
-                {item.badge}
-              </Text>
+    return (
+      <Animated.View style={[styles.cardWrapper, { opacity: cardAnim }]}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate(item.screen)}
+          activeOpacity={0.90}
+        >
+          <LinearGradient
+            colors={item.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradient}
+          >
+            {/* Icon tròn với hiệu ứng kính mờ */}
+            <View style={styles.iconWrapper}>
+              <View style={styles.iconInner}>
+                <Ionicons name={item.icon} size={32} color="#FFF" />
+              </View>
             </View>
-          )}
-          <View style={styles.closeBtn}>
-            <Text style={styles.closeText}>×</Text>
-          </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+
+            {/* Text */}
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.subtitle}>{item.subtitle}</Text>
+            </View>
+
+            {/* Right: Badge + Arrow */}
+            <View style={styles.right}>
+              {item.badge && (
+                <View style={[styles.badge, { backgroundColor: item.badgeBg }]}>
+                  <Text style={[styles.badgeText, { color: item.badgeText }]}>
+                    {item.badge}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.arrowBtn}>
+                <Ionicons name="chevron-forward" size={24} color="#FFF" />
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Đặt Khám</Text>
-        <Text style={styles.headerSubtitle}>Chọn cách bạn muốn đặt lịch</Text>
-      </View>
+      <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+        <Text style={styles.headerSubtitle}>Chọn cách đặt lịch phù hợp với bạn</Text>
+      </Animated.View>
 
       {/* Cards */}
       {options.map((item, i) => (
-        <OptionCard key={i} item={item} />
+        <OptionCard key={i} item={item} index={i} />
       ))}
 
       {/* Note */}
-      <View style={styles.note}>
+      <Animated.View style={[styles.note, { opacity: fadeAnim }]}>
         <View style={styles.shield}>
-          <Ionicons name="shield-checkmark" size={22} color="#10B981" />
+          <Ionicons name="shield-checkmark" size={20} color="#10B981" />
         </View>
-        <Text style={styles.noteText}>Thông tin được bảo mật 100%</Text>
-      </View>
+        <Text style={styles.noteText}>Thông tin của bạn được bảo mật 100%</Text>
+      </Animated.View>
     </ScrollView>
   );
 }
 
-// === STYLES – ĐẸP HƠN ẢNH 200% ===
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-  content: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 60 },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  content: { paddingHorizontal: 20, paddingTop: 32, paddingBottom: 40 },
 
   // Header
-  header: { alignItems: 'center', marginBottom: 36 },
+  header: { alignItems: 'center', marginBottom: 32 },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#1F2937',
-    letterSpacing: -0.8,
+    color: '#1E293B',
+    letterSpacing: -0.6,
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 8,
+    fontSize: 15,
+    color: '#64748B',
+    marginTop: 6,
     fontWeight: '500',
+    textAlign: 'center',
+    maxWidth: '70%',
   },
 
   // Card
+  cardWrapper: { marginBottom: 16 },
   card: {
-    marginBottom: 22,
-    borderRadius: 28,
+    borderRadius: 24,
     overflow: 'hidden',
-    elevation: 20,
+    elevation: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
   },
   gradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 26,
-    minHeight: 120,
+    padding: 20,
+    minHeight: 110,
   },
 
   // Icon
   iconWrapper: {
-    marginRight: 22,
+    marginRight: 18,
   },
   iconInner: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
   },
 
   // Text
-  textContainer: { flex: 1 },
+  textContainer: { flex: 1, paddingRight: 10 },
   title: {
-    fontSize: 21,
-    fontWeight: '900',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 14.5,
-    color: 'rgba(255,255,255,0.92)',
-    marginTop: 5,
-    fontWeight: '600',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginTop: 4,
+    fontWeight: '500',
   },
 
   // Right Section
   right: { alignItems: 'flex-end' },
   badge: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginBottom: 10,
-    borderWidth: 1.2,
-    borderColor: '#F59E0B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+  arrowBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  closeText: {
-    fontSize: 24,
-    color: '#FFF',
-    fontWeight: '300',
-    marginTop: -2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
 
   // Note
@@ -206,24 +226,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0FDF4',
-    padding: 18,
-    borderRadius: 24,
-    marginTop: 20,
-    borderWidth: 1.2,
-    borderColor: '#D1FAE5',
+    padding: 16,
+    borderRadius: 20,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
   shield: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#D1FAE5',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#D1FADF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   noteText: {
-    fontSize: 15,
-    color: '#065F46',
-    fontWeight: '700',
+    fontSize: 14,
+    color: '#047857',
+    fontWeight: '600',
   },
 });

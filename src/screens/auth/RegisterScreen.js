@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,14 +11,19 @@ import {
   Dimensions,
   ActivityIndicator,
   ScrollView,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import Animated, { FadeInUp, withSpring, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { signUp } from '../../controllers/auth/authController';
-import { registerStyles as styles } from '../../styles/auth/registerStyles';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import Animated, {
+  FadeInUp,
+  withSpring,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { signUp } from "../../controllers/auth/authController";
+import { registerStyles as styles } from "../../styles/auth/registerStyles";
 
 const InputField = ({
   icon,
@@ -50,19 +54,36 @@ const InputField = ({
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(index * 100).duration(400).springify()}
+      entering={FadeInUp.delay(index * 100)
+        .duration(400)
+        .springify()}
       style={[
         styles.inputContainer,
         animatedStyle,
-        { backgroundColor: '#f7fafc', borderRadius: 10, borderWidth: 1.5, borderColor: error ? '#F87171' : '#E5E7EB', minHeight: 48, },
+        {
+          backgroundColor: "#f7fafc",
+          borderRadius: 10,
+          borderWidth: 1.5,
+          borderColor: error ? "#F87171" : "#E5E7EB",
+          minHeight: 48,
+        },
         error && styles.inputError,
       ]}
     >
       {icon && (
-        <MaterialCommunityIcons name={icon} size={22} color="#6B7280" style={styles.icon} />
+        <MaterialCommunityIcons
+          name={icon}
+          size={22}
+          color="#6B7280"
+          style={styles.icon}
+        />
       )}
       <TextInput
-        style={[styles.input, { color: '#111827', fontSize: 15 }, error && { color: '#F87171' }]}
+        style={[
+          styles.input,
+          { color: "#111827", fontSize: 15 },
+          error && { color: "#F87171" },
+        ]}
         placeholder={placeholder}
         placeholderTextColor="#9CA3AF"
         value={value}
@@ -78,7 +99,9 @@ const InputField = ({
         <TouchableOpacity
           onPress={onRightPress}
           style={{ marginRight: 8 }}
-          accessibilityLabel={rightIcon === 'eye-outline' ? 'Show password' : 'Hide password'}
+          accessibilityLabel={
+            rightIcon === "eye-outline" ? "Show password" : "Hide password"
+          }
         >
           <MaterialCommunityIcons name={rightIcon} size={22} color="#6B7280" />
         </TouchableOpacity>
@@ -88,7 +111,10 @@ const InputField = ({
 };
 
 const LoadingOverlay = () => (
-  <Animated.View entering={FadeInUp.duration(300)} style={styles.loadingOverlay}>
+  <Animated.View
+    entering={FadeInUp.duration(300)}
+    style={styles.loadingOverlay}
+  >
     <ActivityIndicator size="large" color="#00C6FF" />
     <Text style={styles.loadingText}>Processing...</Text>
   </Animated.View>
@@ -97,11 +123,11 @@ const LoadingOverlay = () => (
 export default function RegisterScreen() {
   const navigation = useNavigation();
   const [form, setForm] = useState({
-    email: '',
-    password: '',
-    full_name: '',
-    phone: '',
-    gender: '',
+    email: "",
+    password: "",
+    full_name: "",
+    phone: "",
+    gender: "",
     dateOfBirth: null,
   });
   const [errors, setErrors] = useState({});
@@ -116,29 +142,33 @@ export default function RegisterScreen() {
   }));
 
   const validateField = (key, value) => {
-    let error = '';
+    let error = "";
     switch (key) {
-      case 'email':
-        if (!value) error = 'Email is required';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Invalid email format';
+      case "email":
+        if (!value) error = "Email is required";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+          error = "Invalid email format";
         break;
-      case 'password':
-        if (!value) error = 'Password is required';
-        else if (value.length < 6) error = 'Password must be at least 6 characters';
+      case "password":
+        if (!value) error = "Password is required";
+        else if (value.length < 6)
+          error = "Password must be at least 6 characters";
         break;
-      case 'full_name':
-        if (!value) error = 'Full name is required';
+      case "full_name":
+        if (!value) error = "Full name is required";
         break;
-      case 'phone':
-        if (!value) error = 'Phone number is required';
-        else if (!/^[0-9]{10}$/.test(value)) error = 'Phone number must be 10 digits';
+      case "phone":
+        if (!value) error = "Phone number is required";
+        else if (!/^[0-9]{10}$/.test(value))
+          error = "Phone number must be 10 digits";
         break;
-      case 'gender':
-        if (!value) error = 'Gender is required';
-        else if (!['Male', 'Female', 'male', 'female'].includes(value)) error = 'Gender must be "Male" or "Female"';
+      case "gender":
+        if (!value) error = "Gender is required";
+        else if (!["male", "female", "other"].includes(value))
+          error = "Vui lòng chọn giới tính";
         break;
-      case 'dateOfBirth':
-        if (!value) error = 'Date of birth is required';
+      case "dateOfBirth":
+        if (!value) error = "Date of birth is required";
         break;
       default:
         break;
@@ -153,7 +183,14 @@ export default function RegisterScreen() {
   };
 
   const validateForm = () => {
-    const fields = ['email', 'password', 'full_name', 'phone', 'gender', 'dateOfBirth'];
+    const fields = [
+      "email",
+      "password",
+      "full_name",
+      "phone",
+      "gender",
+      "dateOfBirth",
+    ];
     let isValid = true;
     fields.forEach((key) => {
       if (!validateField(key, form[key])) isValid = false;
@@ -163,7 +200,10 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!validateForm()) {
-      Alert.alert('Error', 'Please check and fill in all required fields correctly.');
+      Alert.alert(
+        "Error",
+        "Please check and fill in all required fields correctly."
+      );
       return;
     }
 
@@ -174,20 +214,29 @@ export default function RegisterScreen() {
 
     try {
       setLoading(true);
-      const formattedDate = dateOfBirth ? dateOfBirth.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-      const user = await signUp(email, password, full_name, phone, formattedDate, gender);
+      const formattedDate = dateOfBirth
+        ? dateOfBirth.toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+      const user = await signUp(
+        email,
+        password,
+        full_name,
+        phone,
+        formattedDate,
+        gender
+      );
 
       if (user) {
-        Alert.alert('🎉 Success', 'Your account has been created!', [
-          { text: 'OK', onPress: () => navigation.replace('RoleRedirect') },
+        Alert.alert("🎉 Success", "Your account has been created!", [
+          { text: "OK", onPress: () => navigation.replace("RoleRedirect") },
         ]);
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      const message = error.message?.includes('User already registered')
-        ? 'This email is already registered. Please use another email or log in.'
-        : error.message || 'An unknown error occurred.';
-      Alert.alert('Registration Error', message);
+      console.error("Registration error:", error);
+      const message = error.message?.includes("User already registered")
+        ? "This email is already registered. Please use another email or log in."
+        : error.message || "An unknown error occurred.";
+      Alert.alert("Registration Error", message);
     } finally {
       setLoading(false);
       buttonScale.value = withSpring(1);
@@ -203,47 +252,64 @@ export default function RegisterScreen() {
   };
 
   const handleConfirm = (date) => {
-    handleChange('dateOfBirth', date);
+    handleChange("dateOfBirth", date);
     hideDatePicker();
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 20}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20}
     >
       <LinearGradient
-        colors={['#1E3A8A', '#3B82F6', '#93C5FD']}
+        colors={["#1E3A8A", "#3B82F6", "#93C5FD"]}
         style={styles.gradientBackground}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.centeredContainer}>
-            <Animated.View entering={FadeInUp.duration(600).springify()} style={[styles.formContainer, styles.formCard, styles.shadow]}>
+            <Animated.View
+              entering={FadeInUp.duration(600).springify()}
+              style={[styles.formContainer, styles.formCard, styles.shadow]}
+            >
               <View style={styles.logoContainer}>
-                <MaterialCommunityIcons name="account-plus" size={70} color="#2563EB" />
+                <MaterialCommunityIcons
+                  name="account-plus"
+                  size={70}
+                  color="#2563EB"
+                />
                 <Text style={styles.title}>Create Account</Text>
-                <Text style={styles.subtitle}>Join us and start your journey today</Text>
+                <Text style={styles.subtitle}>
+                  Join us and start your journey today
+                </Text>
               </View>
 
               {/* Full Name */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <Text style={styles.inputLabel}>Full Name</Text>
                   {errors.full_name ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.full_name}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.full_name}
+                    </Text>
                   ) : null}
                 </View>
                 <InputField
                   icon="account-outline"
                   placeholder="Enter your full name"
                   value={form.full_name}
-                  onChange={(v) => handleChange('full_name', v)}
+                  onChange={(v) => handleChange("full_name", v)}
                   autoCapitalize="words"
                   error={errors.full_name}
                   index={0}
@@ -252,17 +318,25 @@ export default function RegisterScreen() {
 
               {/* Email */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <Text style={styles.inputLabel}>Email</Text>
                   {errors.email ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.email}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.email}
+                    </Text>
                   ) : null}
                 </View>
                 <InputField
                   icon="email-outline"
                   placeholder="Enter your email"
                   value={form.email}
-                  onChange={(v) => handleChange('email', v)}
+                  onChange={(v) => handleChange("email", v)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   error={errors.email}
@@ -272,19 +346,27 @@ export default function RegisterScreen() {
 
               {/* Password */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <Text style={styles.inputLabel}>Password</Text>
                   {errors.password ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.password}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.password}
+                    </Text>
                   ) : null}
                 </View>
                 <InputField
                   icon="lock-outline"
                   placeholder="Enter your password"
                   value={form.password}
-                  onChange={(v) => handleChange('password', v)}
+                  onChange={(v) => handleChange("password", v)}
                   secureTextEntry={!showPassword}
-                  rightIcon={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                  rightIcon={showPassword ? "eye-outline" : "eye-off-outline"}
                   onRightPress={() => setShowPassword(!showPassword)}
                   error={errors.password}
                   index={2}
@@ -293,65 +375,176 @@ export default function RegisterScreen() {
 
               {/* Phone Number */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <Text style={styles.inputLabel}>Phone Number</Text>
                   {errors.phone ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.phone}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.phone}
+                    </Text>
                   ) : null}
                 </View>
                 <InputField
                   icon="phone-outline"
                   placeholder="Enter your phone number"
                   value={form.phone}
-                  onChange={(v) => handleChange('phone', v)}
+                  onChange={(v) => handleChange("phone", v)}
                   keyboardType="phone-pad"
                   error={errors.phone}
                   index={3}
                 />
               </View>
 
-              {/* Gender */}
+              {/* Gender - THAY ĐỔI THÀNH PICKER */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={styles.inputLabel}>Gender</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
+                  <Text style={styles.inputLabel}>Giới tính</Text>
                   {errors.gender ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.gender}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.gender}
+                    </Text>
                   ) : null}
                 </View>
-                <InputField
-                  icon="account-circle-outline"
-                  placeholder="Male or Female"
-                  value={form.gender}
-                  onChange={(v) => handleChange('gender', v)}
-                  error={errors.gender}
-                  index={4}
-                />
+
+                {/* Gender Options */}
+                <Animated.View
+                  entering={FadeInUp.delay(400).duration(400).springify()}
+                  style={{
+                    flexDirection: "row",
+                    gap: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  {[
+                    { value: "male", label: "Nam", icon: "account" },
+                    { value: "female", label: "Nữ", icon: "account-outline" },
+                    { value: "other", label: "Khác", icon: "account-question" },
+                  ].map((gender) => (
+                    <TouchableOpacity
+                      key={gender.value}
+                      style={[
+                        {
+                          flex: 1,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          borderRadius: 10,
+                          borderWidth: 1.5,
+                          borderColor:
+                            form.gender === gender.value
+                              ? "#2563EB"
+                              : "#E5E7EB",
+                          backgroundColor:
+                            form.gender === gender.value
+                              ? "#EBF4FF"
+                              : "#f7fafc",
+                          gap: 6,
+                        },
+                        errors.gender && { borderColor: "#F87171" },
+                      ]}
+                      onPress={() => handleChange("gender", gender.value)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={gender.icon}
+                        size={20}
+                        color={
+                          form.gender === gender.value ? "#2563EB" : "#6B7280"
+                        }
+                      />
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "600",
+                          color:
+                            form.gender === gender.value
+                              ? "#2563EB"
+                              : "#6B7280",
+                        }}
+                      >
+                        {gender.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </Animated.View>
               </View>
 
               {/* Date of Birth */}
               <View style={styles.inputWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <Text style={styles.inputLabel}>Date of Birth</Text>
                   {errors.dateOfBirth ? (
-                    <Text style={[styles.errorText, { marginLeft: 'auto' }]}>{errors.dateOfBirth}</Text>
+                    <Text style={[styles.errorText, { marginLeft: "auto" }]}>
+                      {errors.dateOfBirth}
+                    </Text>
                   ) : null}
                 </View>
                 <Animated.View
                   entering={FadeInUp.delay(500).duration(400).springify()}
                   style={[
                     styles.inputContainer,
-                    { backgroundColor: '#f7fafc', borderRadius: 10, borderWidth: 1.5, borderColor: errors.dateOfBirth ? '#F87171' : '#E5E7EB', minHeight: 48, },
+                    {
+                      backgroundColor: "#f7fafc",
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: errors.dateOfBirth ? "#F87171" : "#E5E7EB",
+                      minHeight: 48,
+                    },
                     errors.dateOfBirth && styles.inputError,
                   ]}
                 >
-                  <MaterialCommunityIcons name="calendar-outline" size={22} color="#6B7280" style={styles.icon} />
-                  <TouchableOpacity style={{ flex: 1, justifyContent: 'center', height: 44 }} onPress={showDatePicker} accessibilityLabel="Select date of birth">
-                    <Text style={[styles.input, { color: form.dateOfBirth ? '#111827' : '#9CA3AF', fontSize: 15 }]}>
+                  <MaterialCommunityIcons
+                    name="calendar-outline"
+                    size={22}
+                    color="#6B7280"
+                    style={styles.icon}
+                  />
+                  <TouchableOpacity
+                    style={{ flex: 1, justifyContent: "center", height: 44 }}
+                    onPress={showDatePicker}
+                    accessibilityLabel="Select date of birth"
+                  >
+                    <Text
+                      style={[
+                        styles.input,
+                        {
+                          color: form.dateOfBirth ? "#111827" : "#9CA3AF",
+                          fontSize: 15,
+                        },
+                      ]}
+                    >
                       {form.dateOfBirth
-                        ? `${form.dateOfBirth.getDate().toString().padStart(2, '0')}/${(form.dateOfBirth.getMonth() + 1)
+                        ? `${form.dateOfBirth
+                            .getDate()
                             .toString()
-                            .padStart(2, '0')}/${form.dateOfBirth.getFullYear()}`
-                        : 'Select Date of Birth'}
+                            .padStart(2, "0")}/${(
+                            form.dateOfBirth.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(
+                              2,
+                              "0"
+                            )}/${form.dateOfBirth.getFullYear()}`
+                        : "Select Date of Birth"}
                     </Text>
                   </TouchableOpacity>
                 </Animated.View>
@@ -365,17 +558,27 @@ export default function RegisterScreen() {
                 onCancel={hideDatePicker}
                 maximumDate={new Date()}
                 date={form.dateOfBirth || new Date()}
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                display={Platform.OS === "ios" ? "inline" : "default"}
                 accentColor="#2563EB"
                 textColor="#111827"
               />
 
               {/* Register button */}
-              <Animated.View entering={FadeInUp.delay(600).duration(400)} style={[buttonAnimatedStyle, { marginTop: 6 }]}>
+              <Animated.View
+                entering={FadeInUp.delay(600).duration(400)}
+                style={[buttonAnimatedStyle, { marginTop: 6 }]}
+              >
                 <TouchableOpacity
                   style={[
                     styles.button,
-                    { borderRadius: 12, shadowColor: '#60A5FA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 3 },
+                    {
+                      borderRadius: 12,
+                      shadowColor: "#60A5FA",
+                      shadowOffset: { width: 0, height: 5 },
+                      shadowOpacity: 0.22,
+                      shadowRadius: 12,
+                      elevation: 3,
+                    },
                     loading && styles.buttonDisabled,
                   ]}
                   onPress={handleRegister}
@@ -384,19 +587,30 @@ export default function RegisterScreen() {
                   activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={loading ? ['#9CA3AF', '#9CA3AF'] : ['#2563EB', '#60A5FA']}
+                    colors={
+                      loading ? ["#9CA3AF", "#9CA3AF"] : ["#2563EB", "#60A5FA"]
+                    }
                     style={[styles.buttonGradient, { borderRadius: 12 }]}
                   >
-                    <Text style={styles.buttonText}>{loading ? 'Processing...' : 'Register'}</Text>
+                    <Text style={styles.buttonText}>
+                      {loading ? "Processing..." : "Register"}
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </Animated.View>
 
               {/* Login Link */}
-              <Animated.View entering={FadeInUp.delay(700).duration(400)} style={styles.footer}>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')} accessibilityLabel="Go to login">
+              <Animated.View
+                entering={FadeInUp.delay(700).duration(400)}
+                style={styles.footer}
+              >
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("Login")}
+                  accessibilityLabel="Go to login"
+                >
                   <Text style={styles.link}>
-                    Already have an account? <Text style={styles.linkBold}>Log In</Text>
+                    Already have an account?{" "}
+                    <Text style={styles.linkBold}>Log In</Text>
                   </Text>
                 </TouchableOpacity>
               </Animated.View>

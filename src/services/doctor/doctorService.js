@@ -1,11 +1,18 @@
-// src/services/doctorService.js
+// src/services/doctor/doctorService.js
 import { supabase } from '../../api/supabase';
 
-// === HÀM TỰ ĐỘNG SINH SLOT ===
-const generateSlotsForNext7Days = async (doctorId, selectedDays, startTime, endTime) => {
+// === TỰ ĐỘNG SINH SLOT TỪ TEMPLATE ===
+const generateSlotsFromTemplate = async (doctorId) => {
+  const { data: templates, error: tempError } = await supabase
+    .from('doctor_schedule_template')
+    .select('*')
+    .eq('doctor_id', doctorId);
+
+  if (tempError) throw tempError;
+  if (!templates || templates.length === 0) return;
+
   const slotsToInsert = [];
 
-  // Lấy ngày tiếp theo của 1 thứ
   const getNextDate = (dayName) => {
     const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
     const target = days.indexOf(dayName);
@@ -15,10 +22,9 @@ const generateSlotsForNext7Days = async (doctorId, selectedDays, startTime, endT
     if (diff <= 0) diff += 7;
     const next = new Date(today);
     next.setDate(today.getDate() + diff);
-    return next.toISOString().split('T')[0]; // YYYY-MM-DD
+    return next.toISOString().split('T')[0];
   };
 
-  // Chia ca thành slot 60 phút
   const generateTimeSlots = (start, end) => {
     const slots = [];
     let [sh, sm] = start.split(':').map(Number);
@@ -35,9 +41,9 @@ const generateSlotsForNext7Days = async (doctorId, selectedDays, startTime, endT
     return slots;
   };
 
-  for (const day of selectedDays) {
-    const workDate = getNextDate(day);
-    const timeSlots = generateTimeSlots(startTime, endTime);
+  for (const template of templates) {
+    const workDate = getNextDate(template.day_of_week);
+    const timeSlots = generateTimeSlots(template.start_time, template.end_time);
 
     for (const [s, e] of timeSlots) {
       slotsToInsert.push({
@@ -57,87 +63,92 @@ const generateSlotsForNext7Days = async (doctorId, selectedDays, startTime, endT
       .from('appointment_slots')
       .upsert(slotsToInsert, { onConflict: 'doctor_id,work_date,start_time' });
 
-    if (error) console.error('Lỗi sinh slot:', error);
+    if (error) throw error;
   }
 };
 
+// === TẠO BÁC SĨ + LỊCH MẪU + SLOT ===
 // === TẠO BÁC SĨ + LỊCH MẪU + SLOT ===
 export const createDoctorWithRoleService = async (
   email,
   password,
   fullName,
   departmentId,
-  scheduleList = [], // ← [{ day_of_week, start_time, end_time }]
+  scheduleList = [],
   role = 2
 ) => {
-  // 1. Tạo tài khoản Auth
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  try {
+    // 1. TẠO USER AUTH
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
 
-  if (authError) {
-    if (authError.message.includes('already registered')) {
-      return { success: false, message: `Email ${email} đã tồn tại` };
+    if (authError) {
+      if (authError.message.includes('already registered')) {
+        return { success: false, message: `Email ${email} đã tồn tại` };
+      }
+      throw authError;
     }
-    throw new Error(authError.message);
-  }
 
-  const userId = authData.user.id;
+    const userId = authData.user.id;
 
-  // 2. Tạo profile
-  const { data: existingProfile } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (!existingProfile) {
+    // 2. TẠO PROFILE
     const { error: profileError } = await supabase
       .from('user_profiles')
-      .insert([{ id: userId, full_name: fullName, email, role_id: role }]);
-    if (profileError) throw new Error(profileError.message);
-  }
+      .upsert({ id: userId, full_name: fullName, email, role_id: role }, { onConflict: 'id' });
 
-  // 3. Tạo bác sĩ
-  const { data: existingDoctor } = await supabase
-    .from('doctors')
-    .select('id')
-    .eq('id', userId)
-    .maybeSingle();
+    if (profileError) throw profileError;
 
-  if (!existingDoctor) {
+    // 3. TẠO BÁC SĨ
     const { error: doctorError } = await supabase
       .from('doctors')
-      .insert([{ id: userId, department_id: departmentId }]);
-    if (doctorError) throw new Error(doctorError.message);
+      .upsert({ id: userId, department_id: departmentId }, { onConflict: 'id' });
+
+    if (doctorError) throw doctorError;
+
+    // 4. LƯU TEMPLATE VÀO BẢNG `doctor_schedule_template`
+    if (scheduleList.length > 0) {
+      const templateByDay = {};
+      scheduleList.forEach(s => {
+        if (!templateByDay[s.day_of_week]) {
+          templateByDay[s.day_of_week] = { start: s.start_time, end: s.end_time };
+        } else {
+          const currentStart = templateByDay[s.day_of_week].start;
+          const currentEnd = templateByDay[s.day_of_week].end;
+          if (s.start_time < currentStart) templateByDay[s.day_of_week].start = s.start_time;
+          if (s.end_time > currentEnd) templateByDay[s.day_of_week].end = s.end_time;
+        }
+      });
+
+      const templateData = Object.entries(templateByDay).map(([day, { start, end }]) => ({
+        doctor_id: userId,
+        day_of_week: day,
+        start_time: start,
+        end_time: end,
+      }));
+
+      // SỬA: DÙNG .upsert() THAY .insert().onConflict()
+      const { error: tempErr } = await supabase
+        .from('doctor_schedule_template')
+        .upsert(templateData, { 
+          onConflict: 'doctor_id,day_of_week,start_time' 
+        });
+
+      if (tempErr) throw tempErr;
+
+      // TỰ ĐỘNG SINH SLOT
+      await generateSlotsFromTemplate(userId);
+    }
+
+    return { success: true, message: `Đã tạo bác sĩ ${fullName}`, userId };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
-
-  // 4. LƯU LỊCH MẪU (template)
- if (scheduleList.length > 0) {
-    const templateData = scheduleList.map(s => ({
-      doctor_id: userId,
-      is_template: true,
-      day_of_week: s.day_of_week,
-      start_time: s.start_time,
-      end_time: s.end_time,
-      max_patients: 30,
-    }));
-
-    const { error: tempErr } = await supabase
-      .from('appointment_slots')
-      .insert(templateData);
-    if (tempErr) throw tempErr;
-
-    // TỰ ĐỘNG SINH SLOT CHO 7 NGÀY TỚI
-    await generateSlotsForNext7Days(userId, scheduleList);
-  }
-
-  return { success: true, message: `Đã tạo bác sĩ ${fullName}`, userId };
 };
 
-// === CÁC HÀM KHÁC (GIỮ NGUYÊN) ===
+// === LẤY TẤT CẢ BÁC SĨ ===
 export const getAllDoctorsService = async () => {
   const { data, error } = await supabase
     .from('doctors')
@@ -164,6 +175,7 @@ export const getAllDoctorsService = async () => {
   return data;
 };
 
+// === CẬP NHẬT BÁC SĨ ===
 export const updateDoctorService = async (userId, updateData = {}) => {
   const updates = {};
 
@@ -192,9 +204,19 @@ export const updateDoctorService = async (userId, updateData = {}) => {
 
   return { success: true, message: 'Đã cập nhật thông tin bác sĩ' };
 };
+
+// === XÓA BÁC SĨ ===
 export const deleteDoctorService = async (userId) => {
   try {
-    // 1. XÓA TẤT CẢ SLOT TRƯỚC (BẮT BUỘC!)
+    // 1. XÓA TEMPLATE
+    const { error: tempError } = await supabase
+      .from('doctor_schedule_template')
+      .delete()
+      .eq('doctor_id', userId);
+
+    if (tempError) throw tempError;
+
+    // 2. XÓA TẤT CẢ SLOT
     const { error: slotError } = await supabase
       .from('appointment_slots')
       .delete()
@@ -202,7 +224,7 @@ export const deleteDoctorService = async (userId) => {
 
     if (slotError) throw slotError;
 
-    // 2. XÓA doctors (giờ đã an toàn)
+    // 3. XÓA doctors
     const { error: doctorError } = await supabase
       .from('doctors')
       .delete()
@@ -210,7 +232,7 @@ export const deleteDoctorService = async (userId) => {
 
     if (doctorError) throw doctorError;
 
-    // 3. XÓA profile
+    // 4. XÓA profile
     const { error: profileError } = await supabase
       .from('user_profiles')
       .delete()
@@ -218,7 +240,7 @@ export const deleteDoctorService = async (userId) => {
 
     if (profileError) throw profileError;
 
-    // 4. XÓA auth (cuối cùng)
+    // 5. XÓA auth
     const { error: authError } = await supabase.auth.admin.deleteUser(userId);
     if (authError) throw authError;
 
@@ -228,7 +250,7 @@ export const deleteDoctorService = async (userId) => {
   }
 };
 
-// === TẠO SLOT CỤ THỂ (DÙNG KHI CẦN) ===
+// === TẠO SLOT CỤ THỂ ===
 export const createDoctorSlotService = async (doctorId, workDate, startTime, endTime, maxPatients = 5) => {
   const { data, error } = await supabase
     .from('appointment_slots')

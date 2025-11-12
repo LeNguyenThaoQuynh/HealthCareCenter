@@ -1,192 +1,116 @@
-import { StyleSheet, Platform } from 'react-native';
+// src/styles/admin/ManageDoctorsStyles.js
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#F9FAFB',
   },
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E5E7EB',
   },
-
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2c3e50',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
   },
-
   addButton: {
-    flexDirection: 'row',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
-      android: { elevation: 6 },
-    }),
-  },
-
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 6,
-    fontSize: 15,
-  },
-
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-  },
-
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-
-  avatarContainer: {
-    marginRight: 14,
-  },
-
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#eee',
-  },
-
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#10B981',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
-
-  infoContainer: {
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  doctorCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  doctorInfo: {
     flex: 1,
   },
-
-  name: {
+  doctorName: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#2d3436',
-    marginBottom: 2,
-  },
-
-  email: {
-    fontSize: 14,
-    color: '#636e72',
-    marginBottom: 8,
-  },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    color: '#1F2937',
     marginBottom: 4,
   },
-
-  label: {
-    fontSize: 13,
-    color: '#7f8c8d',
-    marginRight: 4,
+  doctorDetail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
   },
-
-  value: {
-    fontSize: 13,
-    color: '#2d3436',
-    fontWeight: '500',
-  },
-
-  separator: {
-    marginHorizontal: 8,
-    color: '#ddd',
-  },
-
-  specialization: {
-    fontSize: 13,
-    color: '#007AFF',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-
-  deleteBtn: {
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+  actionButtons: {
     flexDirection: 'row',
+    gap: 12,
+  },
+  editButton: {
+    padding: 8,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F9FAFB',
   },
-
-  deleteText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 4,
-    fontSize: 13,
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6B7280',
   },
-
-  // Skeleton
-  skeletonLine: {
-    height: 14,
-    backgroundColor: '#eee',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-
-  // Empty state
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingTop: 80,
   },
-
   emptyText: {
-    fontSize: 16,
-    color: '#95a5a6',
     marginTop: 16,
-    textAlign: 'center',
-  },
-
-  emptyButton: {
-    marginTop: 20,
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-
-  emptyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#9CA3AF',
   },
 });
