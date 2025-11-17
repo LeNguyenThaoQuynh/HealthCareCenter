@@ -6,185 +6,190 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  StatusBar,
+  Platform,
 } from 'react-native';
-import { supabase } from '../../api/supabase';
+import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { styles } from '../../styles/doctor/DoctorAppointmentsStyles';
 import { DoctorAppointmentController } from '../../controllers/doctor/doctor_appointment_controller';
 
+const TABS = [
+  { key: 'today', title: 'Hôm nay' },
+  { key: 'pending', title: 'Chờ xác nhận' },
+  { key: 'confirmed', title: 'Đã xác nhận' },
+  { key: 'completed', title: 'Đã khám xong' },
+  { key: 'cancelled', title: 'Đã hủy' },
+];
+
 export default function DoctorAppointmentsScreen() {
+  const navigation = useNavigation();
   const [appointments, setAppointments] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [activeTab, setActiveTab] = useState('today');
   const [loading, setLoading] = useState(true);
-  const [doctorId, setDoctorId] = useState(null);
-  const [error, setError] = useState(null);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        await DoctorAppointmentController.loadAppointments(
-          setDoctorId,
-          setAppointments,
-          setLoading,
-          setError
-        );
-      } catch (err) {
-        setError('Có lỗi không xác định xảy ra. Vui lòng thử lại.');
-        console.error('Unexpected error during load:', err);
-      }
-    };
-    loadData();
+    loadAppointments();
   }, []);
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'confirmed':
-        return '#2ecc71'; // Xanh lá
-      case 'pending':
-        return '#f1c40f'; // Vàng
-      case 'completed':
-        return '#3498db'; // Xanh dương
-      case 'cancelled':
-        return '#e74c3c'; // Đỏ
-      case 'patient_cancelled':
-        return '#e67e22'; // Cam (hủy bởi bệnh nhân)
-      case 'doctor_cancelled':
-        return '#9b59b6'; // Tím (hủy bởi bác sĩ)
-      default:
-        return '#333';
-    }
-  };
+  useEffect(() => {
+    filterByTab();
+  }, [appointments, activeTab]);
 
-  const confirmAppointment = async (id) => {
-    if (!id) {
-      Alert.alert('Lỗi', 'ID cuộc hẹn không hợp lệ.');
-      return;
-    }
+  const loadAppointments = async () => {
+    setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-      }
-
-      const updatedAppointment = await DoctorAppointmentController.confirmAppointment(id, setAppointments, setError);
-      setAppointments(prev => prev.map(app => app.id === id ? updatedAppointment : app));
-      Alert.alert('Thành công', 'Đã xác nhận cuộc hẹn.');
-    } catch (error) {
-      console.error('Lỗi xác nhận:', error);
-      Alert.alert('Lỗi', error.message || 'Không thể xác nhận cuộc hẹn.');
-    }
-  };
-
-  const cancelAppointment = async (id) => {
-    if (!id) {
-      Alert.alert('Lỗi', 'ID cuộc hẹn không hợp lệ.');
-      return;
-    }
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-      }
-
-      Alert.alert(
-        'Xác nhận hủy',
-        'Bạn có chắc muốn hủy cuộc hẹn này? (Lý do: Bận đột xuất)',
-        [
-          { text: 'Hủy bỏ', style: 'cancel' },
-          {
-            text: 'Xác nhận',
-            onPress: async () => {
-              try {
-                const updatedAppointment = await DoctorAppointmentController.cancelAppointment(id, setAppointments, setError, 'doctor', 'Bận đột xuất');
-                setAppointments(prev => prev.map(app => app.id === id ? updatedAppointment : app));
-                Alert.alert('Thành công', 'Đã hủy cuộc hẹn.');
-              } catch (error) {
-                console.error('Lỗi hủy:', error);
-                Alert.alert('Lỗi', error.message || 'Không thể hủy cuộc hẹn.');
-              }
-            },
-            style: 'destructive',
-          },
-        ],
-        { cancelable: true }
+      await DoctorAppointmentController.loadAppointments(
+        () => {},
+        setAppointments,
+        setLoading,
+        () => {}
       );
-    } catch (error) {
-      console.error('Lỗi kiểm tra phiên:', error);
-      Alert.alert('Lỗi', error.message || 'Không thể kiểm tra phiên đăng nhập.');
+    } catch (err) {
+      console.error(err);
     }
+  };
+
+  const filterByTab = () => {
+    let result = [...appointments];
+
+    if (activeTab === 'today') {
+      result = appointments.filter(app => {
+        const date = app.appointment_date || app.slot?.start_time || app.created_at;
+        if (!date) return false;
+        const appDate = new Date(date);
+        const d = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+        return d.getTime() === today.getTime();
+      });
+    } else if (activeTab === 'pending') result = appointments.filter(a => a.status === 'pending');
+    else if (activeTab === 'confirmed') result = appointments.filter(a => a.status === 'confirmed');
+    else if (activeTab === 'completed') result = appointments.filter(a => a.status === 'completed');
+    else if (activeTab === 'cancelled')
+      result = appointments.filter(a =>
+        ['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(a.status)
+      );
+
+    result.sort((a, b) => {
+      const ta = new Date(a.appointment_date || a.slot?.start_time || a.created_at).getTime();
+      const tb = new Date(b.appointment_date || b.slot?.start_time || b.created_at).getTime();
+      return ta - tb;
+    });
+
+    setFiltered(result);
+  };
+
+  const getStatusText = s => {
+    const map = {
+      pending: 'Chờ xác nhận',
+      confirmed: 'Đã xác nhận',
+      completed: 'Đã khám xong',
+      patient_cancelled: 'BN hủy',
+      doctor_cancelled: 'BS hủy',
+      cancelled: 'Đã hủy',
+    };
+    return map[s] || s;
+  };
+
+  const getStatusColor = s => {
+    const map = {
+      pending: '#f39c12',
+      confirmed: '#27ae60',
+      completed: '#2980b9',
+      patient_cancelled: '#e67e22',
+      doctor_cancelled: '#8e44ad',
+    };
+    return map[s] || '#c0392b';
+  };
+
+  const confirmAppointment = async id => {
+    Alert.alert('Xác nhận', 'Xác nhận bệnh nhân đến khám?', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xác nhận',
+        onPress: async () => {
+          try {
+            const updated = await DoctorAppointmentController.confirmAppointment(id, setAppointments);
+            setAppointments(prev => prev.map(a => (a.id === id ? updated : a)));
+          } catch (e) {
+            Alert.alert('Lỗi', 'Không thể xác nhận');
+          }
+        },
+      },
+    ]);
+  };
+
+  const cancelAppointment = async id => {
+    Alert.alert('Hủy lịch', 'Hủy cuộc hẹn này?', [
+      { text: 'Không', style: 'cancel' },
+      {
+        text: 'Hủy lịch',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const updated = await DoctorAppointmentController.cancelAppointment(
+              id,
+              setAppointments,
+              null,
+              'doctor',
+              'Bận đột xuất'
+            );
+            setAppointments(prev => prev.map(a => (a.id === id ? updated : a)));
+          } catch (e) {
+            Alert.alert('Lỗi', 'Không thể hủy');
+          }
+        },
+      },
+    ]);
   };
 
   const renderItem = ({ item }) => {
-    if (!item) {
-      return (
-        <View style={styles.card}>
-          <Text style={styles.errorText}>Dữ liệu cuộc hẹn không hợp lệ</Text>
-        </View>
-      );
-    }
+    const name = item.patient?.full_name?.trim() || item.patient_name || 'Bệnh nhân';
+    const dept = item.department?.name || 'Phòng khám';
 
-    const patientName = item.patient_name || (item.patient?.full_name || 'Bệnh nhân không xác định');
-    const departmentName = item.department?.name || 'Khoa không xác định';
-    const slot = item.slot || {};
-    const cancelledBy = item.cancelled_by?.cancelled_by || null;
-    const reason = item.cancelled_by?.reason || null;
+    const date = item.appointment_date
+      ? new Date(item.appointment_date)
+      : item.slot?.start_time
+      ? new Date(`2025-01-01T${item.slot.start_time}`)
+      : new Date();
 
-    let timeDisplay = 'Chưa có thời gian';
-    if (item.appointment_date) {
-      const dateObj = new Date(item.appointment_date);
-      timeDisplay = !isNaN(dateObj) ? dateObj.toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }) : 'Chưa có thời gian';
-    } else if (slot.start_time && slot.end_time) {
-      const start = new Date(slot.start_time);
-      const end = new Date(slot.end_time);
-      timeDisplay = !isNaN(start) && !isNaN(end) ? `${start.toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })} - ${end.toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })}` : 'Chưa có thời gian';
-    }
+    const timeStr = date.toLocaleString('vi-VN', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     return (
       <View style={styles.card}>
-        <Text style={styles.name}>{patientName}</Text>
-        <Text style={styles.service}>🏢 {departmentName}</Text>
-        <Text style={styles.time}>🕓 {timeDisplay}</Text>
-        {item.symptoms ? (
-          <Text style={styles.symptoms}>🤒 {item.symptoms}</Text>
-        ) : null}
-        <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
-          Trạng thái: {item.status || 'Không xác định'}
-        </Text>
-        {cancelledBy && (
+        <View style={styles.cardHeader}>
+          <Text style={styles.patientName}>{name}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusBadgeText}>{getStatusText(item.status)}</Text>
+          </View>
+        </View>
+        <Text style={styles.department}>Khoa: {dept}</Text>
+        <Text style={styles.time}>Giờ khám: {timeStr}</Text>
+        {item.symptoms && <Text style={styles.symptoms}>Triệu chứng: {item.symptoms}</Text>}
+        {item.cancelled_by?.cancelled_by && (
           <Text style={styles.cancelInfo}>
-            Hủy bởi: {cancelledBy === 'doctor' ? 'Bác sĩ' : 'Bệnh nhân'}
-            {reason ? ` - Lý do: ${reason}` : ''}
+            Hủy bởi: {item.cancelled_by.cancelled_by === 'doctor' ? 'Bác sĩ' : 'Bệnh nhân'}
+            {item.cancelled_by.reason ? ` – ${item.cancelled_by.reason}` : ''}
           </Text>
         )}
-        {item.status === 'pending' && (
-          <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={() => confirmAppointment(item.id)}
-            activeOpacity={0.7}
-            disabled={!item.id}
-          >
-            <Text style={styles.confirmButtonText}>Xác nhận</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === 'pending' && (
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => cancelAppointment(item.id)}
-            activeOpacity={0.7}
-            disabled={!item.id}
-          >
-            <Text style={styles.cancelButtonText}>Hủy</Text>
-          </TouchableOpacity>
+        {activeTab === 'pending' && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmAppointment(item.id)}>
+              <Text style={styles.confirmBtnText}>Xác nhận</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => cancelAppointment(item.id)}>
+              <Text style={styles.cancelBtnText}>Hủy lịch</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
@@ -192,20 +197,52 @@ export default function DoctorAppointmentsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📅 Lịch hẹn của tôi</Text>
-      {error ? (
-        <Text style={styles.errorText}>{error}</Text>
-      ) : loading ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
-      ) : appointments.length === 0 ? (
-        <Text style={styles.emptyText}>Không có lịch hẹn nào.</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#2c8e7c" />
+
+      {/* Header xanh + nút back – KHÔNG CÒN CHỮ "Lịch hẹn" THỪA */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Icon name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} size={28} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Lịch khám của tôi</Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]} numberOfLines={2}>
+              {tab.title}
+            </Text>
+            {activeTab === tab.key && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Nội dung */}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#2c8e7c" />
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
+          <Text style={styles.emptyText}>
+            {activeTab === 'today' ? 'Hôm nay chưa có lịch khám nào' : 'Không có lịch hẹn'}
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={appointments}
-          keyExtractor={(item) => item.id?.toString() || Math.random().toString()} // Ưu tiên item.id
+          data={filtered}
+          keyExtractor={item => item.id.toString()}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          ListEmptyComponent={<Text style={styles.emptyText}>Không có lịch hẹn nào.</Text>}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>

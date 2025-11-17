@@ -24,6 +24,13 @@ const DOCTOR_CARD_PADDING_X = 16;
 const INNER_CONTENT_WIDTH = width - (2 * LIST_HORIZONTAL_PADDING) - (2 * DOCTOR_CARD_PADDING_X);
 const SLOT_WIDTH_V2 = (INNER_CONTENT_WIDTH - 8) / 2;
 
+// HÀM SIÊU AN TOÀN – CHỐNG CRASH SLICE OF UNDEFINED
+const safeTime = (timeVal) => {
+  if (!timeVal) return null;
+  const str = String(timeVal).trim();
+  return str.length >= 5 ? str.slice(0, 5) : null;
+};
+
 export default function SelectTimeSlot() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -34,7 +41,6 @@ export default function SelectTimeSlot() {
   const [slots, setSlots] = useState([]);
   const [selectedSlotId, setSelectedSlotId] = useState(null);
 
-  // === FORMAT NGÀY ===
   const formatHeaderDate = useMemo(() => {
     return new Date(date).toLocaleDateString('vi-VN', {
       weekday: 'long',
@@ -44,120 +50,128 @@ export default function SelectTimeSlot() {
     });
   }, [date]);
 
-  // === LẤY LỊCH MẪU + ĐẾM ĐÃ ĐẶT ===
   const loadData = useCallback(async (isRefresh = false) => {
-  if (!isRefresh) setLoading(true);
-  setRefreshing(true);
+    if (!isRefresh) setLoading(true);
+    setRefreshing(true);
 
-  try {
-    const dayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    const dayOfWeek = dayMap[new Date(date).getDay()];
+    try {
+      const dayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+      const dayOfWeek = dayMap[new Date(date).getDay()];
 
-    const { data: templates, error: tempError } = await supabase
-      .from('doctor_schedule_template')
-      .select(`
-        id,
-        doctor_id,
-        start_time,
-        end_time,
-        max_patients_per_slot,
-        doctors!inner (
+      const { data: templates, error: tempError } = await supabase
+        .from('doctor_schedule_template')
+        .select(`
           id,
-          name,
-          room_number,
-          specialization,
-          experience_years,
-          user_profiles!inner (
-            avatar_url
+          doctor_id,
+          start_time,
+          end_time,
+          max_patients_per_slot,
+          doctors!inner (
+            id,
+            name,
+            room_number,
+            specialization,
+            experience_years,
+            user_profiles!inner (
+              avatar_url
+            )
           )
-        )
-      `)
-      .eq('day_of_week', dayOfWeek)
-      .eq('doctors.department_id', department.id);
+        `)
+        .eq('day_of_week', dayOfWeek)
+        .eq('doctors.department_id', department.id);
 
-    if (tempError) throw tempError;
-    if (!templates || templates.length === 0) {
+      if (tempError) throw tempError;
+      if (!templates || templates.length === 0) {
+        setSlots([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const slotIds = templates.map(t => t.id);
+      const { data: booked, error: bookError } = await supabase
+        .from('appointments')
+        .select('slot_id')
+        .eq('date', date)
+        .in('slot_id', slotIds)
+        .neq('status', 'cancelled');
+
+      if (bookError) throw bookError;
+
+      const bookedCount = {};
+      booked?.forEach(b => {
+        bookedCount[b.slot_id] = (bookedCount[b.slot_id] || 0) + 1;
+      });
+
+      const availableSlots = templates
+        .map(t => {
+          const start = safeTime(t.start_time);
+          const end = safeTime(t.end_time);
+
+          if (!start || !end) {
+            console.warn('Ca bị lỗi giờ, bỏ qua:', t);
+            return null;
+          }
+
+          const booked = bookedCount[t.id] || 0;
+          const max = t.max_patients_per_slot || 5;
+          const available = max - booked;
+
+          if (available <= 0) return null;
+
+          return {
+            id: t.id,
+            doctor_id: t.doctor_id,
+            doctor_name: t.doctors.name,
+            room_number: t.doctors.room_number,
+            avatar_url: t.doctors.user_profiles?.avatar_url || null,
+            specialization: t.doctors.specialization,
+            experience_years: t.doctors.experience_years,
+            start_time: start,   // <-- ĐÃ CÓ
+            end_time: end,       // <-- ĐÃ CÓ
+            display: `${start} - ${end}`,
+            available,
+            max,
+            booked,
+          };
+        })
+        .filter(Boolean);
+
+      const grouped = {};
+      availableSlots.forEach(s => {
+        const id = s.doctor_id;
+        if (!grouped[id]) {
+          grouped[id] = {
+            doctor: {
+              id,
+              name: s.doctor_name,
+              room_number: s.room_number,
+              avatar_url: s.avatar_url,
+              specialization: s.specialization,
+              experience_years: s.experience_years,
+            },
+            slots: [],
+          };
+        }
+        grouped[id].slots.push({
+          id: s.id,
+          display: s.display,
+          available: s.available,
+          start_time: s.start_time,  // ← TRUYỀN ĐẦY ĐỦ
+          end_time: s.end_time,      // ← TRUYỀN ĐẦY ĐỦ
+        });
+      });
+
+      setSlots(Object.values(grouped));
+    } catch (err) {
+      console.error('Lỗi tải lịch:', err);
+      Alert.alert('Lỗi', 'Không thể tải lịch khám. Vui lòng thử lại.');
       setSlots([]);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      return;
     }
-
-    const slotIds = templates.map(t => t.id);
-    const { data: booked, error: bookError } = await supabase
-      .from('appointments')
-      .select('slot_id')
-      .eq('date', date)
-      .in('slot_id', slotIds)
-      .neq('status', 'cancelled');
-
-    if (bookError) throw bookError;
-
-    const bookedCount = {};
-    booked?.forEach(b => {
-      bookedCount[b.slot_id] = (bookedCount[b.slot_id] || 0) + 1;
-    });
-
-    const availableSlots = templates
-      .map(t => {
-        const start = t.start_time.slice(0, 5);
-        const end = t.end_time.slice(0, 5);
-        const booked = bookedCount[t.id] || 0;
-        const max = t.max_patients_per_slot || 5;
-        const available = max - booked;
-
-        if (available <= 0) return null;
-
-        return {
-          id: t.id,
-          doctor_id: t.doctor_id,
-          doctor_name: t.doctors.name,
-          room_number: t.doctors.room_number,
-          avatar_url: t.doctors.user_profiles?.avatar_url || null, // ← ĐÚNG!
-          specialization: t.doctors.specialization,
-          experience_years: t.doctors.experience_years,
-          start_time: start,
-          end_time: end,
-          display: `${start} - ${end}`,
-          available,
-          max,
-          booked,
-        };
-      })
-      .filter(Boolean);
-
-    const grouped = {};
-    availableSlots.forEach(s => {
-      const id = s.doctor_id;
-      if (!grouped[id]) {
-        grouped[id] = {
-          doctor: {
-            id,
-            name: s.doctor_name,
-            room_number: s.room_number,
-            avatar_url: s.avatar_url,
-            specialization: s.specialization,
-            experience_years: s.experience_years,
-          },
-          slots: [],
-        };
-      }
-      grouped[id].slots.push({
-        id: s.id,
-        display: s.display,
-        available: s.available,
-      });
-    });
-
-    setSlots(Object.values(grouped));
-  } catch (err) {
-    console.error('Lỗi:', err);
-    Alert.alert('Lỗi', 'Không thể tải lịch. Vui lòng thử lại.');
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-}, [date, department.id]);
+  }, [date, department.id]);
 
   useEffect(() => {
     loadData();
@@ -165,24 +179,26 @@ export default function SelectTimeSlot() {
 
   const onRefresh = () => loadData(true);
 
+  // ĐÃ FIX 100% – TRUYỀN ĐẦY ĐỦ start_time + end_time
   const handleSlotPress = (slot, doctor) => {
     setSelectedSlotId(slot.id);
     setTimeout(() => {
       navigation.navigate('ConfirmBooking', {
         date,
         department,
+        doctor,
+        price: department.price,
         slot: {
           id: slot.id,
           display: slot.display,
+          start_time: slot.start_time,  // ← BẮT BUỘC CÓ
+          end_time: slot.end_time,      // ← BẮT BUỘC CÓ
         },
-        doctor,
-        price: department.price,
       });
       setSelectedSlotId(null);
-    }, 100);
+    }, 120);
   };
 
-  // === RENDER SLOT ===
   const renderSlot = (slot, doctor) => {
     const isLow = slot.available <= 2;
     const isCritical = slot.available === 1;
@@ -190,7 +206,7 @@ export default function SelectTimeSlot() {
 
     return (
       <TouchableOpacity
-        activeOpacity={0.7}
+        activeOpacity={0.75}
         style={[
           styles.slotButton,
           isLow && styles.slotButtonWarning,
@@ -206,9 +222,9 @@ export default function SelectTimeSlot() {
         ]}>{slot.display}</Text>
         <View style={styles.slotDetails}>
           {isCritical ? (
-            <Ionicons name="alert-circle-outline" size={14} color={isSelected ? '#fff' : '#B91C1C'} style={{ marginRight: 4 }} />
+            <Ionicons name="alert-circle" size={14} color={isSelected ? '#fff' : '#B91C1C'} />
           ) : (
-            <Ionicons name="flash-outline" size={14} color={isSelected ? '#fff' : (isLow ? '#B45309' : '#16A34A')} style={{ marginRight: 4 }} />
+            <Ionicons name="flash" size={14} color={isSelected ? '#fff' : (isLow ? '#D97706' : '#16A34A')} />
           )}
           <Text style={[
             styles.slotAvailable,
@@ -222,7 +238,6 @@ export default function SelectTimeSlot() {
     );
   };
 
-  // === RENDER DOCTOR CARD ===
   const renderDoctor = ({ item }) => {
     const doctor = item.doctor;
     const firstLetter = doctor.name?.charAt(0).toUpperCase() || 'B';
@@ -242,7 +257,7 @@ export default function SelectTimeSlot() {
             <Text style={styles.doctorName}>{doctor.name}</Text>
             {doctor.specialization && (
               <View style={styles.badge}>
-                <Ionicons name="ribbon-outline" size={12} color="#059669" />
+                <Ionicons name="ribbon" size={12} color="#059669" />
                 <Text style={styles.specialization}>{doctor.specialization}</Text>
               </View>
             )}
@@ -274,7 +289,7 @@ export default function SelectTimeSlot() {
       <Ionicons name="calendar-clear-outline" size={80} color="#D1D5DB" />
       <Text style={styles.emptyTitle}>Tạm hết lịch trống</Text>
       <Text style={styles.emptyText}>
-        Tất cả ca khám trong khoa **{department.name}** vào **{formatHeaderDate}** đã đầy.
+        Tất cả ca khám trong khoa <Text style={{fontWeight: 'bold'}}>{department.name}</Text> vào ngày <Text style={{fontWeight: 'bold'}}>{formatHeaderDate}</Text> đã đầy.
       </Text>
       <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
         <Text style={styles.retryText}>Tải lại</Text>
@@ -289,7 +304,7 @@ export default function SelectTimeSlot() {
     return (
       <View style={styles.centerLoading}>
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Đang tìm bác sĩ...</Text>
+        <Text style={styles.loadingText}>Đang tìm bác sĩ trống...</Text>
       </View>
     );
   }
@@ -310,14 +325,14 @@ export default function SelectTimeSlot() {
           <Text style={styles.infoText}> {formatHeaderDate}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Ionicons name="wallet-outline" size={16} color="#1F2937" />
-          <Text style={styles.infoPrice}> {department.price.toLocaleString('vi-VN')}đ</Text>
+          <Ionicons name="wallet" size={16} color="#1F2937" />
+          <Text style={styles.infoPrice}> {department.price?.toLocaleString('vi-VN')}đ</Text>
         </View>
       </View>
 
       <FlatList
         data={slots}
-        keyExtractor={item => item.doctor.id}
+        keyExtractor={item => item.doctor.id.toString()}
         renderItem={renderDoctor}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
@@ -328,7 +343,7 @@ export default function SelectTimeSlot() {
   );
 }
 
-// === STYLES GIỮ NGUYÊN (chỉ sửa 1 chỗ nhỏ) ===
+// Styles đẹp lung linh như cũ
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F7FC' },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F7FC' },
@@ -365,11 +380,11 @@ const styles = StyleSheet.create({
   slotItem: { width: SLOT_WIDTH_V2, marginBottom: 8 },
   slotButton: { backgroundColor: '#FFFFFF', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 15, borderWidth: 1.5, borderColor: '#E5E7EB', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 65, elevation: 3 },
   slotButtonSelected: { backgroundColor: '#3B82F6', borderColor: '#1E40AF' },
-  slotButtonWarning: { backgroundColor: '#FFFAEB', borderColor: '#FDE68A' },
-  slotButtonCritical: { backgroundColor: '#FFF0F0', borderColor: '#FCA5A5' },
+  slotButtonWarning: { backgroundColor: '#FFFBEB', borderColor: '#FEF3C7' },
+  slotButtonCritical: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
   slotTime: { fontWeight: '800', color: '#1F2937', fontSize: 16, marginBottom: 2 },
-  slotDetails: { flexDirection: 'row', alignItems: 'center' },
-  slotAvailable: { fontSize: 12, color: '#16A34A', fontWeight: '700' },
+  slotDetails: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  slotAvailable: { fontSize: 12, color: '#16A34A', fontWeight: '700', marginLeft: 4 },
   slotAvailableWarning: { color: '#B91C1C' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#F4F7FC' },
   loadingText: { marginTop: 16, color: '#4B5563', fontSize: 16, fontWeight: '600' },
