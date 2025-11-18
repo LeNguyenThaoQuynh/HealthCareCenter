@@ -1,4 +1,3 @@
-// src/screens/patient/HistoryScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -17,24 +16,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import AppointmentCard from '../../components/AppointmentCard';
 import { AppointmentController } from '../../controllers/patient/AppointmentController';
+import theme from '../../theme/theme';
 
-const Colors = {
-  primary: '#1D4ED8',
-  secondary: '#38BDF8',
-  success: '#10B981',
-  danger: '#EF4444',
-  warning: '#F59E0B',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  bg: '#F8FAFC',
-  cardBg: '#FFFFFF',
-};
+const {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  FONT_SIZE,
+  FONT_WEIGHT,
+  SHADOWS,
+} = theme;
 
 const TABS = [
-  { key: 'confirmed', title: 'Đã đồng ý',   icon: 'checkmark-circle', color: Colors.success },
-  { key: 'pending',   title: 'Chưa phản hồi', icon: 'time',          color: Colors.warning },
-  { key: 'cancelled', title: 'Đã hủy',      icon: 'close-circle',   color: Colors.danger  },
+  { key: 'confirmed', title: 'Đã đồng ý',   icon: 'checkmark-circle', color: '#34C759' },
+  { key: 'pending',   title: 'Chưa phản hồi', icon: 'time',          color: '#FF9500' },
+  { key: 'cancelled', title: 'Đã hủy',      icon: 'close-circle',   color: '#FF3B30' },
 ];
 
 export default function HistoryScreen() {
@@ -46,13 +43,8 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // LẤY DỮ LIỆU – ĐÃ FIX LỖI CALLBACK
   const fetchAppointments = useCallback(() => {
-    AppointmentController.loadAppointments(
-      setAppointments,   // ← truyền đúng hàm setter
-      setLoading,
-      setError
-    );
+    AppointmentController.loadAppointments(setAppointments, setLoading, setError);
   }, []);
 
   useEffect(() => {
@@ -65,10 +57,9 @@ export default function HistoryScreen() {
       .finally(() => setRefreshing(false));
   }, []);
 
-  // LỌC THEO TAB
   const filteredAppointments = appointments.filter(app => {
     if (activeTab === 'confirmed') return app.status === 'confirmed';
-    if (activeTab === 'pending')   return app.status === 'pending';
+    if (activeTab === 'pending') return app.status === 'pending';
     return ['cancelled', 'doctor_cancelled', 'patient_cancelled'].includes(app.status);
   });
 
@@ -88,22 +79,18 @@ export default function HistoryScreen() {
               setError,
               'patient'
             );
-            if (result.success) {
-              Alert.alert('Thành công', result.message);
-            } else {
-              Alert.alert('Lỗi', result.message);
-            }
+            if (result.success) Alert.alert('Thành công', result.message);
+            else Alert.alert('Lỗi', result.message);
           },
         },
       ]
     );
   };
 
-  // TAB ITEM
   const renderTab = ({ item }) => {
     const count = appointments.filter(app => {
       if (item.key === 'confirmed') return app.status === 'confirmed';
-      if (item.key === 'pending')   return app.status === 'pending';
+      if (item.key === 'pending') return app.status === 'pending';
       return ['cancelled', 'doctor_cancelled', 'patient_cancelled'].includes(app.status);
     }).length;
 
@@ -116,10 +103,10 @@ export default function HistoryScreen() {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={isActive ? [item.color, item.color + 'dd'] : ['#E2E8F0', '#F1F5F9']}
+          colors={isActive ? [item.color, item.color + 'dd'] : ['#E5E7EB', '#F3F4F6']}
           style={styles.tabGradient}
         >
-          <Ionicons name={item.icon} size={22} color={isActive ? '#FFF' : item.color} />
+          <Ionicons name={item.icon} size={18} color={isActive ? '#FFF' : item.color} />
           <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
             {item.title}
           </Text>
@@ -138,7 +125,7 @@ export default function HistoryScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
       </View>
     );
@@ -146,9 +133,8 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.background}>
-      {/* HEADER */}
       <Animated.View entering={FadeInDown.duration(500)}>
-        <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.header}>
+        <LinearGradient colors={GRADIENTS.header} style={styles.header}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -159,7 +145,6 @@ export default function HistoryScreen() {
         </LinearGradient>
       </Animated.View>
 
-      {/* TABS */}
       <View style={styles.tabContainer}>
         <FlatList
           data={TABS}
@@ -167,15 +152,14 @@ export default function HistoryScreen() {
           keyExtractor={item => item.key}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: 10 }}
         />
       </View>
 
-      {/* NỘI DUNG */}
       <View style={styles.container}>
         {filteredAppointments.length === 0 ? (
           <Animated.View entering={ZoomIn.duration(500)} style={styles.empty}>
-            <Ionicons name="calendar-outline" size={80} color="#CBD5E1" />
+            <Ionicons name="calendar-outline" size={68} color={COLORS.textLight} />
             <Text style={styles.emptyTitle}>Chưa có lịch hẹn</Text>
             <Text style={styles.emptySubtitle}>
               {activeTab === 'confirmed' && 'Bạn chưa có lịch nào được duyệt'}
@@ -191,7 +175,7 @@ export default function HistoryScreen() {
               <AppointmentCard item={item} index={index} onCancel={handleCancel} />
             )}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.list}
@@ -202,43 +186,82 @@ export default function HistoryScreen() {
   );
 }
 
-// STYLES ĐẸP + BO TRÒN
 const styles = StyleSheet.create({
-  background: { flex: 1, backgroundColor: Colors.bg },
+  background: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 24, fontWeight: '800', color: '#FFF' },
+  title: {
+    fontSize: 22,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textOnPrimary,
+  },
 
-  tabContainer: { paddingVertical: 16, backgroundColor: Colors.bg },
-  tabButton: { borderRadius: 30, overflow: 'hidden', elevation: 4 },
-  tabActive: { elevation: 10 },
-  tabGradient: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
-  tabText: { fontSize: 15, fontWeight: '700', color: '#64748B' },
+  tabContainer: { paddingVertical: 12, backgroundColor: COLORS.background },
+  tabButton: { borderRadius: BORDER_RADIUS.full, overflow: 'hidden', ...SHADOWS.small },
+  tabActive: { ...SHADOWS.card },
+  tabGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    gap: 8,
+  },
+  tabText: {
+    fontSize: 13.5,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: COLORS.textSecondary,
+  },
   tabTextActive: { color: '#FFF' },
-  badge: { minWidth: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
-  badgeText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#FFF',
+  },
 
   container: { flex: 1 },
-  list: { padding: 16, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  loadingText: { marginTop: 12, fontSize: 16, color: Colors.textPrimary, fontWeight: '600' },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary, marginTop: 16 },
-  emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 8 },
+  list: { padding: SPACING.xl, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: {
+    marginTop: 12,
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.medium,
+  },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginTop: 14,
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
+  },
 });

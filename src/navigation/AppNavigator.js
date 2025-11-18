@@ -14,7 +14,7 @@ import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
 import ManagePatientsScreen from '../screens/admin/ManagePatientsScreen';
 import AdminDashboard from '../screens/admin/AdminDashboard';
 import DoctorDetailScreen from '../screens/admin/DoctorDetailScreen';
-
+import CreateMedicalRecord from '../screens/doctor/CreateMedicalRecord'
 // OTHER ROLES
 import DoctorTabs from './DoctorTabs';
 import PatientStack from './PatientStack';
@@ -53,6 +53,7 @@ export default function AppNavigator() {
       <Stack.Screen name="PatientStack" component={PatientStack} />
       <Stack.Screen name="ReceptionTabs" component={ReceptionTabs} />
       <Stack.Screen name="AccountantTabs" component={AccountantTabs} />
+      <Stack.Screen name="CreateMedicalRecord" component={CreateMedicalRecord} />
     </Stack.Navigator>
   );
 }

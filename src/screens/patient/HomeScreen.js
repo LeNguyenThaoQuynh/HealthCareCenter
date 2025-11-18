@@ -1,244 +1,185 @@
-// src/screens/patient/HomeScreen.js
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
   Animated,
-  useWindowDimensions,
-  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-
-// IMPORT ĐÚNG
 import { supabase } from "../../api/supabase";
 import { getUserProfile } from "../../controllers/patient/userController";
+import theme from "../../theme/theme";
+
+const { SPACING, BORDER_RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } = theme;
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { width } = useWindowDimensions();
-  const isSmall = width < 400;
-
   const [displayName, setDisplayName] = useState("Bạn");
-  const [userId, setUserId] = useState(null);
 
-  // LẤY USER ID TỪ SUPABASE
+  // Lấy tên người dùng
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (user?.id) setUserId(user.id);
-      } catch (err) {
-        console.error("Lỗi lấy user:", err.message);
+    const fetch = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const profile = await getUserProfile(user.id);
+        setDisplayName(profile?.full_name || profile?.name || user.email.split("@")[0]);
       }
     };
-    fetchUser();
+    fetch();
   }, []);
 
-  // LẤY TÊN THẬT KHI CÓ userId
-  useEffect(() => {
-    if (!userId) return;
-
-    const loadProfile = async () => {
-      try {
-        const profile = await getUserProfile(userId);
-        const name = profile?.full_name || profile?.name || "Bạn";
-        setDisplayName(name);
-      } catch (err) {
-        console.log("Lỗi lấy profile → dùng email làm tên");
-        const { data: { user } } = await supabase.auth.getUser();
-        const fallback = user?.email?.split("@")[0] || "Bạn";
-        setDisplayName(fallback);
-      }
-    };
-    loadProfile();
-  }, [userId]);
-
-  // MENU CHÍNH – ĐÃ THÊM "BỆNH ÁN"
-  const menuItems = [
-    { title: "Đặt khám",        icon: "calendar-outline",    screen: "BookingOptionsScreen",   color: ["#E0F2FE", "#BFDBFE"] },
-    { title: "Lịch sử",         icon: "time-outline",        screen: "HistoryScreen",          color: ["#FEF3C7", "#FDE68A"] },
-    { title: "Bệnh án",         icon: "document-text-outline", screen: "MedicalRecordScreen",  color: ["#DCFCE7", "#BBF7D0"] }, // MỚI
-    { title: "Hồ sơ",           icon: "person-outline",      screen: "ProfileScreen",          color: ["#E0E7FF", "#C7D2FE"] },
-    { title: "Theo dõi",        icon: "pulse-outline",       screen: null,                     color: ["#FCE7F3", "#FBCFE8"] },
-    { title: "Cộng đồng",       icon: "people-outline",      screen: null,                     color: ["#F3E8FF", "#E9D5FF"] },
+  const menu = [
+    { title: "Đặt khám",       icon: "calendar-outline",    screen: "BookingOptionsScreen" },
+    { title: "Lịch sử khám",   icon: "time-outline",        screen: "HistoryScreen" },
+    { title: "Bệnh án",        icon: "document-text-outline", screen: "MedicalRecordScreen" },
+    { title: "Hồ sơ",          icon: "person-outline",      screen: "ProfileScreen" },
+    { title: "Theo dõi",       icon: "heart-outline",       screen: null },
+    { title: "Hỗ trợ",         icon: "chatbubble-outline",  screen: null },
   ];
 
-  const scales = useRef(menuItems.map(() => new Animated.Value(0.7))).current;
+  const scales = useRef(menu.map(() => new Animated.Value(1))).current;
 
-  useEffect(() => {
-    const animations = scales.map((scale, i) =>
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 8,
-        tension: 120,
-        delay: i * 80,
-        useNativeDriver: true,
-      })
-    );
-    Animated.stagger(80, animations).start();
-  }, []);
-
-  const handlePress = (index, screen) => {
+  const animatePress = (index) => {
     Animated.sequence([
-      Animated.timing(scales[index], { toValue: 0.94, duration: 100, useNativeDriver: true }),
-      Animated.spring(scales[index], { toValue: 1, friction: 4, tension: 80, useNativeDriver: true }),
-    ]).start(() => {
-      if (screen) navigation.navigate(screen);
-    });
+      Animated.timing(scales[index], { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.timing(scales[index], { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* HEADER */}
-      <LinearGradient colors={["#1D4ED8", "#38BDF8"]} style={styles.header}>
-        <Text style={styles.greeting}>Chào mừng trở lại,</Text>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+      {/* Header xanh dương sạch */}
+      <LinearGradient colors={["#2563EB", "#3B82F6"]} style={styles.header}>
+        <Text style={styles.greeting}>Xin chào,</Text>
         <Text style={styles.name}>{displayName}</Text>
-        <Text style={styles.subtitle}>
-          Hôm nay bạn cảm thấy thế nào? Hãy bắt đầu chăm sóc sức khỏe ngay!
-        </Text>
+        <Text style={styles.subtitle}>Chăm sóc sức khỏe của bạn hôm nay</Text>
       </LinearGradient>
 
-      {/* INFO BOX – LỊCH KHÁM SẮP TỚI */}
-      <TouchableWithoutFeedback onPress={() => navigation.navigate("HistoryScreen")}>
-        <View style={styles.infoBox}>
-          <Ionicons name="medkit-outline" size={26} color="#059669" />
-          <Text style={styles.infoText}>Bạn có lịch khám sắp tới • Xem ngay</Text>
-          <Ionicons name="arrow-forward-circle" size={28} color="#3B82F6" />
-        </View>
-      </TouchableWithoutFeedback>
+      {/* Info box nhẹ nhàng */}
+      <TouchableOpacity style={styles.infoBox} onPress={() => navigation.navigate("HistoryScreen")}>
+        <Ionicons name="notifications-outline" size={22} color="#2563EB" />
+        <Text style={styles.infoText}>Bạn có lịch khám sắp tới</Text>
+        <Ionicons name="chevron-forward" size={22} color="#2563EB" />
+      </TouchableOpacity>
 
-      {/* GRID MENU – 6 Ô ĐẸP */}
+      {/* Grid menu – nhỏ gọn, chỉ 1 màu icon + nền trắng */}
       <View style={styles.grid}>
-        {menuItems.map((item, index) => (
-          <TouchableWithoutFeedback
-            key={item.title}
-            onPress={() => handlePress(index, item.screen)}
+        {menu.map((item, i) => (
+          <TouchableOpacity
+            key={i}
+            style={styles.menuItem}
+            onPress={() => {
+              animatePress(i);
+              item.screen && navigation.navigate(item.screen);
+            }}
             disabled={!item.screen}
+            activeOpacity={0.85}
           >
-            <Animated.View
-              style={[
-                styles.card,
-                { transform: [{ scale: scales[index] }] },
-                !item.screen && styles.disabled,
-              ]}
-            >
-              <LinearGradient
-                colors={item.color || ["#E0E7FF", "#C7D2FE"]}
-                style={styles.iconWrapper}
-              >
-                <Ionicons name={item.icon} size={32} color="#1E3A8A" />
-              </LinearGradient>
-              <Text style={styles.title}>{item.title}</Text>
+            <Animated.View style={[styles.itemInner, { transform: [{ scale: scales[i] }] }]}>
+              <View style={styles.iconCircle}>
+                <Ionicons name={item.icon} size={28} color="#2563EB" />
+              </View>
+              <Text style={styles.itemText}>{item.title}</Text>
             </Animated.View>
-          </TouchableWithoutFeedback>
+          </TouchableOpacity>
         ))}
       </View>
 
-      {/* TIN TỨC SỨC KHỎE */}
+      {/* Tin tức – đơn giản, sạch */}
       <View style={styles.newsSection}>
-        <Text style={styles.newsTitle}>Tin tức sức khỏe hôm nay</Text>
-        <View style={styles.newsCard}>
-          <View style={styles.newsIcon}>
-            <Ionicons name="heart" size={28} color="#DC2626" />
+        <Text style={styles.newsTitle}>Tin tức sức khỏe</Text>
+        <TouchableOpacity style={styles.newsCard}>
+          <Ionicons name="heart" size={26} color="#EF4444" />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={styles.newsHeadline}>10 mẹo giữ sức khỏe mùa đông</Text>
+            <Text style={styles.newsDate}>18/11/2025</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.newsHeadline}>10 mẹo giữ sức khỏe mùa đông từ chuyên gia</Text>
-            <Text style={styles.newsDate}>17/11/2025 • 5 phút đọc</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#94A3B8" />
-        </View>
+          <Ionicons name="chevron-forward" size={22} color="#94A3B8" />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
-// STYLES ĐẸP NHƯ APP CAO CẤP
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
-  content: { paddingBottom: 100 },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+
   header: {
-    paddingTop: Platform.OS === "ios" ? 70 : 50,
-    paddingHorizontal: 28,
-    paddingBottom: 48,
-    borderBottomLeftRadius: 48,
-    borderBottomRightRadius: 48,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
+    paddingTop: theme.headerPaddingTop || 60,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xxl,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  greeting: { fontSize: 18, color: "#DBEAFE", fontWeight: "600" },
-  name: { fontSize: 38, fontWeight: "900", color: "#FFFFFF", marginTop: 6, letterSpacing: -0.5 },
-  subtitle: { fontSize: 16, color: "#E0F2FE", marginTop: 10, lineHeight: 22 },
+  greeting: { fontSize: 17, color: "#FFFFFFCC", fontWeight: "600" },
+  name: { fontSize: 32, color: "#FFFFFF", fontWeight: "800", marginTop: 4 },
+  subtitle: { fontSize: 15, color: "#FFFFFFE6", marginTop: 6 },
 
   infoBox: {
-    marginHorizontal: 24,
+    marginHorizontal: SPACING.xl,
     marginTop: -28,
-    padding: 20,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#1D4ED8",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
-    borderWidth: 1.5,
-    borderColor: "#DBEAFE",
+    ...SHADOWS.card,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
   },
-  infoText: { fontSize: 15, fontWeight: "700", color: "#1E293B", flex: 1, marginLeft: 14 },
+  infoText: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: "600", color: "#1E293B" },
 
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 20,
     justifyContent: "space-between",
-    marginTop: 36,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.xxl,
   },
-  card: {
-    width: "47%",
-    aspectRatio: 1,
+  menuItem: {
+    width: "30%",
+    marginBottom: SPACING.xl,
+  },
+  itemInner: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 32,
+    paddingVertical: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    alignItems: "center",
+    ...SHADOWS.card,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#EBF5FF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 12,
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
+    marginBottom: SPACING.sm,
   },
-  disabled: { opacity: 0.5 },
-  iconWrapper: { borderRadius: 48, padding: 20, marginBottom: 12 },
-  title: { fontSize: 16, fontWeight: "800", color: "#1E293B", textAlign: "center" },
+  itemText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1E293B",
+    textAlign: "center",
+  },
 
-  newsSection: { paddingHorizontal: 24, marginTop: 20 },
-  newsTitle: { fontSize: 20, fontWeight: "800", color: "#1E293B", marginBottom: 16 },
+  newsSection: { paddingHorizontal: SPACING.xl, marginTop: SPACING.xxl },
+  newsTitle: { fontSize: 18, fontWeight: "700", color: "#1E293B", marginBottom: SPACING.md },
   newsCard: {
     backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 24,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
+    ...SHADOWS.card,
   },
-  newsIcon: { backgroundColor: "#FEE2E2", padding: 12, borderRadius: 20, marginRight: 16 },
-  newsHeadline: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
-  newsDate: { fontSize: 13, color: "#94A3B8", marginTop: 4 },
+  newsHeadline: { fontSize: 15, fontWeight: "600", color: "#1E293B" },
+  newsDate: { fontSize: 13, color: "#64748B", marginTop: 4 },
 });

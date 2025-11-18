@@ -1,4 +1,3 @@
-// styles/doctor/DoctorAppointmentsStyles.js
 
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 
@@ -8,7 +7,6 @@ export const styles = StyleSheet.create({
     backgroundColor: '#f5f7fa',
   },
 
-  // ==================== HEADER ====================
   header: {
     height: Platform.OS === 'android' ? 90 : 110,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 50,
