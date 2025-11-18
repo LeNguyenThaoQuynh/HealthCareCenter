@@ -1,182 +1,227 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import theme from '../../theme/theme';
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import theme from "../../theme/theme";
 
-const { SPACING, BORDER_RADIUS, SHADOWS } = theme;
+const {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  FONT_WEIGHT,
+  SHADOWS,
+} = theme;
 
 export default function BookingOptionsScreen() {
   const navigation = useNavigation();
 
   const options = [
     {
-      title: 'Theo Bác sĩ',
-      subtitle: 'Chọn bác sĩ bạn muốn khám',
-      icon: 'person-outline',
-      screen: 'BookByDoctor',
-      gradient: ['#7C3AED', '#A78BFA'],
-      badge: 'PHỔ BIẾN',
+      title: "Theo Bác sĩ",
+      subtitle: "Chọn bác sĩ bạn muốn khám",
+      icon: "person-outline",
+      screen: "BookByDoctor",
+      gradient: ["#7C3AED", "#A78BFA"],
+      badge: "PHỔ BIẾN",
     },
     {
-      title: 'Theo Ngày',
-      subtitle: 'Chọn ngày và khung giờ phù hợp',
-      icon: 'calendar-outline',
-      screen: 'BookByDate',
-      gradient: ['#2563EB', '#3B82F6'], 
+      title: "Theo Ngày",
+      subtitle: "Chọn ngày và khung giờ phù hợp",
+      icon: "calendar-outline",
+      screen: "BookByDate",
+      gradient: GRADIENTS.primaryButton,
     },
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Đặt lịch khám</Text>
-        <Text style={styles.headerSubtitle}>Chọn cách đặt lịch phù hợp với bạn</Text>
-      </View>
-
-      {options.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.card}
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate(item.screen)}
-        >
-          <LinearGradient
-            colors={item.gradient}
-            style={styles.cardGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <View style={styles.iconCircle}>
-              <Ionicons name={item.icon} size={28} color="#FFFFFF" />
-            </View>
-
-            <View style={styles.textContainer}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.subtitle}>{item.subtitle}</Text>
-            </View>
-
-            <View style={styles.right}>
-              {item.badge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
-              )}
-              <Ionicons name="chevron-forward" size={26} color="#FFFFFF" />
-            </View>
-          </LinearGradient>
+    <View style={styles.container}>
+      <LinearGradient colors={GRADIENTS.header} style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack( )} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
-      ))}
 
-      <View style={styles.note}>
-        <Ionicons name="shield-checkmark-outline" size={22} color="#2563EB" />
-        <Text style={styles.noteText}>
-          Thông tin của bạn được bảo mật 100%
-        </Text>
-      </View>
-    </ScrollView>
+        <View style={styles.titleWrapper}>
+          <Text style={styles.headerTitle}>Đặt lịch khám</Text>
+          <Text style={styles.headerSubtitle}>Chọn cách đặt lịch phù hợp với bạn</Text>
+        </View>
+
+        <View style={{ width: 48 }} />
+      </LinearGradient>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {options.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.card}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate(item.screen)}
+          >
+            <LinearGradient
+              colors={item.gradient}
+              style={styles.cardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.iconWrapper}>
+                <Ionicons name={item.icon} size={26} color="#FFF" />
+              </View>
+
+              <View style={styles.textWrapper}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+              </View>
+
+              <View style={styles.rightSide}>
+                {item.badge && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={24} color="#FFF" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        ))}
+
+        {/* Note bảo mật */}
+        <View style={styles.securityNote}>
+          <Ionicons name="shield-checkmark" size={22} color={COLORS.primary} />
+          <Text style={styles.noteText}>
+            Thông tin của bạn được bảo mật 100%
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
-  content: {
-    paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.xxxl,
-    paddingBottom: SPACING.xxxl,
-  },
+
+  // === HEADER ===
   header: {
-    alignItems: 'center',
-    marginBottom: SPACING.xxxl,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.lg,
+    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  titleWrapper: {
+    flex: 1,
+    alignItems: "center",
+    marginLeft: -44, // cân bằng với backBtn
   },
   headerTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#1E293B',
-    letterSpacing: -0.5,
+    fontSize: 22,
+    fontWeight: FONT_WEIGHT.bold,
+    color: "#FFF",
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    marginTop: 8,
-    textAlign: 'center',
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 4,
   },
+
+  // === NỘI DUNG ===
+  scrollContent: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xxxl,
+  },
+
   card: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
     borderRadius: BORDER_RADIUS.xl,
-    overflow: 'hidden',
+    overflow: "hidden",
     ...SHADOWS.card,
   },
   cardGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.xl,
-    minHeight: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    minHeight: 88,
   },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.xl,
+  iconWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.lg,
   },
-  textContainer: {
+  textWrapper: {
     flex: 1,
-    paddingRight: SPACING.md,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  cardTitle: {
+    fontSize: 17.5,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: "#FFF",
   },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 4,
+  cardSubtitle: {
+    fontSize: 13.5,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 3,
   },
-  right: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+  rightSide: {
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   badge: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
+    backgroundColor: "#FFF",
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 8,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#7C3AED',
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#7C3AED",
   },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EBF5FF',
+
+  // === NOTE ===
+  securityNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.lg,
-    marginTop: SPACING.xxl,
+    marginTop: SPACING.xl,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: "#BFDBFE",
   },
   noteText: {
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E40AF',
+    marginLeft: SPACING.md,
+    fontSize: 14.5,
+    fontWeight: FONT_WEIGHT.medium,
+    color: COLORS.primary,
     flex: 1,
   },
 });

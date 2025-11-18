@@ -46,7 +46,7 @@ export default function PatientStack() {
       <Stack.Screen
         name="BookingOptionsScreen"
         component={BookingOptionsScreen}
-        options={{ headerShown: true, title: "Chọn cách đặt khám" }}
+       
       />
 
       {/* Đặt theo bác sĩ */}

@@ -1,39 +1,37 @@
-// src/screens/patient/MedicalRecordScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Platform,
   Linking,
   RefreshControl,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../api/supabase';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+  StyleSheet,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { supabase } from "../../api/supabase";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import theme from "../../theme/theme";
 
-const Colors = {
-  primary: '#1D4ED8',
-  success: '#10B981',
-  danger: '#EF4444',
-  warning: '#F59E0B',
-  bg: '#F8FAFC',
-  card: '#FFFFFF',
-  text: '#1E293B',
-  muted: '#64748B',
-};
+const {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  FONT_SIZE,
+  FONT_WEIGHT,
+  SHADOWS,
+} = theme;
 
 export default function MedicalRecordScreen() {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState('records'); // 'records' | 'tests'
+  const [activeTab, setActiveTab] = useState("records"); // 'records' | 'tests'
   const [records, setRecords] = useState([]);
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,34 +39,31 @@ export default function MedicalRecordScreen() {
 
   const fetchData = async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      if (activeTab === 'records') {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (activeTab === "records") {
         const { data } = await supabase
-          .from('medical_records')
+          .from("medical_records")
           .select(`
             *,
             doctor:user_profiles(full_name),
             appointments!appointment_id(date)
           `)
-          .eq('patient_id', user.id)
-          .order('created_at', { ascending: false });
+          .eq("patient_id", user.id)
+          .order("created_at", { ascending: false });
         setRecords(data || []);
       } else {
         const { data } = await supabase
-          .from('test_results')
-          .select('*')
-          .eq('patient_id', user.id)
-          .order('performed_at', { ascending: false, nullsLast: true });
+          .from("test_results")
+          .select("*")
+          .eq("patient_id", user.id)
+          .order("performed_at", { ascending: false, nullsLast: true });
         setTests(data || []);
       }
     } catch (err) {
-      console.error('Lỗi tải bệnh án:', err);
+      console.error("Lỗi tải bệnh án:", err);
     } finally {
       setLoading(false);
       if (isRefresh) setRefreshing(false);
@@ -84,10 +79,10 @@ export default function MedicalRecordScreen() {
     fetchData(true);
   };
 
-  const openFile = async (url, filename = 'ket_qua.pdf') => {
+  const openFile = async (url, filename = "ket_qua.pdf") => {
     if (!url) return;
     try {
-      if (url.toLowerCase().includes('.pdf')) {
+      if (url.toLowerCase().includes(".pdf")) {
         Linking.openURL(url);
       } else {
         const result = await FileSystem.downloadAsync(url, FileSystem.documentDirectory + filename);
@@ -96,14 +91,14 @@ export default function MedicalRecordScreen() {
         }
       }
     } catch (e) {
-      console.log('Lỗi mở file:', e);
+      console.log("Lỗi mở file:", e);
     }
   };
 
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Đang tải bệnh án...</Text>
       </View>
     );
@@ -112,53 +107,65 @@ export default function MedicalRecordScreen() {
   return (
     <View style={styles.container}>
       {/* HEADER */}
-      <LinearGradient colors={[Colors.primary, '#2563EB']} style={styles.header}>
+      <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={26} color="#FFF" />
+          <Ionicons name="arrow-back" size={28} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Bệnh án điện tử</Text>
-        <View style={{ width: 44 }} />
+        <View style={{ width: 50 }} />
       </LinearGradient>
 
       {/* TABS */}
-      <View style={styles.tabBar}>
+      <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'records' && styles.tabActive]}
-          onPress={() => setActiveTab('records')}
+          style={[styles.tab, activeTab === "records" && styles.tabActive]}
+          onPress={() => setActiveTab("records")}
         >
-          <Ionicons name="document-text" size={20} color={activeTab === 'records' ? '#FFF' : Colors.muted} />
-          <Text style={[styles.tabText, activeTab === 'records' && styles.tabTextActive]}>
+          <Ionicons name="document-text-outline" size={22} color={activeTab === "records" ? "#FFF" : COLORS.textSecondary} />
+          <Text style={[styles.tabText, activeTab === "records" && styles.tabTextActive]}>
             Bệnh án ({records.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'tests' && styles.tabActive]}
-          onPress={() => setActiveTab('tests')}
+          style={[styles.tab, activeTab === "tests" && styles.tabActive]}
+          onPress={() => setActiveTab("tests")}
         >
-          <Ionicons name="flask" size={20} color={activeTab === 'tests' ? '#FFF' : Colors.muted} />
-          <Text style={[styles.tabText, activeTab === 'tests' && styles.tabTextActive]}>
+          <Ionicons name="flask-outline" size={22} color={activeTab === "tests" ? "#FFF" : COLORS.textSecondary} />
+          <Text style={[styles.tabText, activeTab === "tests" && styles.tabTextActive]}>
             Cận lâm sàng ({tests.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* CONTENT */}
-      {activeTab === 'records' ? (
+      {activeTab === "records" ? (
         <FlatList
           data={records}
-          keyExtractor={item => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
-          ListEmptyComponent={<Text style={styles.empty}>Chưa có bệnh án nào</Text>}
-          renderItem={({ item }) => (
-            <Animated.View entering={FadeInDown.duration(400)}>
+          keyExtractor={(item) => item.id.toString()}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="documents-outline" size={80} color={COLORS.textLight} />
+              <Text style={styles.emptyTitle}>Chưa có bệnh án</Text>
+              <Text style={styles.emptySubtitle}>Các bệnh án sẽ xuất hiện tại đây</Text>
+            </View>
+          }
+          contentContainerStyle={styles.list}
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(400).delay(index * 100)}>
               <View style={styles.recordCard}>
                 <View style={styles.recordHeader}>
                   <Text style={styles.recordDate}>
-                    {new Date(item.created_at).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    {new Date(item.created_at).toLocaleDateString("vi-VN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
                   </Text>
-                  <Ionicons name="person-circle" size={28} color={Colors.primary} />
+                  <Ionicons name="person-circle" size={36} color={COLORS.primary} />
                 </View>
-                <Text style={styles.doctorName}>BS. {item.doctor?.full_name || 'Không xác định'}</Text>
+                <Text style={styles.doctorName}>BS. {item.doctor?.full_name || "Không xác định"}</Text>
                 {item.diagnosis && (
                   <>
                     <Text style={styles.label}>Chẩn đoán</Text>
@@ -184,30 +191,42 @@ export default function MedicalRecordScreen() {
       ) : (
         <FlatList
           data={tests}
-          keyExtractor={item => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
-          ListEmptyComponent={<Text style={styles.empty}>Chưa có kết quả cận lâm sàng</Text>}
-          renderItem={({ item }) => (
-            <Animated.View entering={FadeInDown.duration(400)}>
+          keyExtractor={(item) => item.id.toString()}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="flask-outline" size={80} color={COLORS.textLight} />
+              <Text style={styles.emptyTitle}>Chưa có kết quả xét nghiệm</Text>
+              <Text style={styles.emptySubtitle}>Kết quả sẽ được cập nhật sau khi có</Text>
+            </View>
+          }
+          contentContainerStyle={styles.list}
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.duration(400).delay(index * 100)}>
               <TouchableOpacity
-                style={[styles.testCard, item.status === 'abnormal' && styles.testCardAbnormal]}
-                onPress={() => item.file_url && openFile(item.file_url, `${item.test_name}.pdf`)}
+                style={[styles.testCard, item.status === "abnormal" && styles.testCardWarning]}
+                onPress={() => item.file_url && openFile(item.file_url, `${item.test_name.replace(/\s/g, "_")}.pdf`)}
+                activeOpacity={0.8}
               >
                 <View style={styles.testHeader}>
                   <Text style={styles.testName}>{item.test_name}</Text>
-                  <Ionicons
-                    name={item.status === 'abnormal' ? 'warning' : item.status === 'critical' ? 'alert-circle' : 'checkmark-circle'}
-                    size={28}
-                    color={item.status === 'abnormal' ? Colors.warning : item.status === 'critical' ? Colors.danger : Colors.success}
-                  />
+                  {item.status === "abnormal" ? (
+                    <Ionicons name="warning" size={32} color={COLORS.warning} />
+                  ) : item.status === "critical" ? (
+                    <Ionicons name="alert-circle" size={32} color={COLORS.danger} />
+                  ) : (
+                    <Ionicons name="checkmark-circle" size={32} color={COLORS.success} />
+                  )}
                 </View>
                 <Text style={styles.testValue}>
                   {item.result_value} {item.unit}
-                  {item.reference_range && <Text style={styles.ref}> (Bình thường: {item.reference_range})</Text>}
+                  {item.reference_range && (
+                    <Text style={styles.refRange}> (Bình thường: {item.reference_range})</Text>
+                  )}
                 </Text>
                 {item.file_url && (
                   <View style={styles.fileBadge}>
-                    <Ionicons name="document-attach" size={18} color={Colors.primary} />
+                    <Ionicons name="document-attach" size={20} color={COLORS.primary} />
                     <Text style={styles.fileText}>Xem file kết quả</Text>
                   </View>
                 )}
@@ -221,55 +240,96 @@ export default function MedicalRecordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingHorizontal: SPACING.xl,
     paddingBottom: 24,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
-  backBtn: { padding: 4 },
-  title: { fontSize: 24, fontWeight: '800', color: '#FFF' },
-
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    margin: 16,
-    marginBottom: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+  backBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },
-  tabActive: { backgroundColor: Colors.primary },
-  tabText: { fontSize: 15, fontWeight: '700', color: Colors.muted },
-  tabTextActive: { color: '#FFF' },
+  title: { fontSize: 24, fontWeight: FONT_WEIGHT.bold, color: "#FFF" },
 
-  recordCard: { backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 12, padding: 18, borderRadius: 20, elevation: 4 },
-  recordHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  recordDate: { fontSize: 15, fontWeight: '600', color: Colors.warning },
-  doctorName: { fontSize: 18, fontWeight: '800', color: Colors.text, marginBottom: 12 },
-  label: { fontSize: 14, color: Colors.muted, marginTop: 12, fontWeight: '600' },
-  value: { fontSize: 16, color: Colors.text, marginTop: 4, lineHeight: 22 },
+  tabContainer: {
+    flexDirection: "row",
+    marginHorizontal: SPACING.xl,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+    backgroundColor: "#FFF",
+    borderRadius: BORDER_RADIUS.xxl,
+    overflow: "hidden",
+    ...SHADOWS.card,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 10,
+  },
+  tabActive: { backgroundColor: COLORS.primary },
+  tabText: { fontSize: 16, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textSecondary },
+  tabTextActive: { color: "#FFF" },
 
-  testCard: { backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 12, padding: 18, borderRadius: 20, elevation: 4 },
-  testCardAbnormal: { borderLeftWidth: 5, borderLeftColor: Colors.warning },
-  testHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  testName: { fontSize: 17, fontWeight: '700', color: Colors.text },
-  testValue: { marginTop: 8, fontSize: 15, color: Colors.muted },
-  ref: { fontSize: 13, color: '#94A3B8' },
-  fileBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 12, backgroundColor: '#EFF6FF', padding: 10, borderRadius: 12, alignSelf: 'flex-start' },
-  fileText: { marginLeft: 8, color: Colors.primary, fontWeight: '600' },
+  list: { padding: SPACING.xl, paddingTop: 0 },
 
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  loadingText: { marginTop: 16, fontSize: 16, color: Colors.text },
-  empty: { textAlign: 'center', marginTop: 60, fontSize: 17, color: Colors.muted, fontWeight: '500' },
+  recordCard: {
+    backgroundColor: "#FFF",
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.lg,
+    ...SHADOWS.card,
+  },
+  recordHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.md,
+  },
+  recordDate: { fontSize: 16, fontWeight: FONT_WEIGHT.semibold, color: COLORS.warning },
+  doctorName: { fontSize: 20, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.lg },
+  label: { fontSize: 15, color: COLORS.textSecondary, marginTop: SPACING.lg, fontWeight: FONT_WEIGHT.semibold },
+  value: { fontSize: 17, color: COLORS.textPrimary, marginTop: 6, lineHeight: 24 },
+
+  testCard: {
+    backgroundColor: "#FFF",
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.lg,
+    ...SHADOWS.card,
+  },
+  testCardWarning: { borderLeftWidth: 6, borderLeftColor: COLORS.warning },
+  testHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  testName: { fontSize: 18, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+  testValue: { fontSize: 17, color: COLORS.textSecondary, marginTop: 8 },
+  refRange: { fontSize: 15, color: COLORS.textLight },
+  fileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.primary + "10",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: BORDER_RADIUS.lg,
+    alignSelf: "flex-start",
+  },
+  fileText: { marginLeft: 8, color: COLORS.primary, fontSize: 15, fontWeight: FONT_WEIGHT.semibold },
+
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 16, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
+
+  emptyContainer: { alignItems: "center", marginTop: 80 },
+  emptyTitle: { fontSize: 20, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginTop: 20 },
+  emptySubtitle: { fontSize: 15, color: COLORS.textSecondary, marginTop: 8 },
 });
