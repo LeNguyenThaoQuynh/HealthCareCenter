@@ -16,6 +16,7 @@ import DoctorTabs from './DoctorTabs';
 import PatientStack from './PatientStack';
 import ReceptionTabs from './ReceptionTabs';
 import AccountantTabs from './AccountantTabs';
+import EditDoctorProfile from '../screens/doctor/EditDoctorProfileScreen';
 const Stack = createStackNavigator();
 export default function AppNavigator() {
   return (
@@ -38,6 +39,7 @@ export default function AppNavigator() {
       <Stack.Screen name="ReceptionTabs" component={ReceptionTabs} />
       <Stack.Screen name="AccountantTabs" component={AccountantTabs} />
       <Stack.Screen name="CreateMedicalRecord" component={CreateMedicalRecord} />
+      <Stack.Screen name="EditDoctorProfile"  component={EditDoctorProfile}/>
     </Stack.Navigator>
   );
 }
