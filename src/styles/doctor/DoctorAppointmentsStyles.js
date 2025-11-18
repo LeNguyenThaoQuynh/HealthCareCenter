@@ -1,175 +1,176 @@
+// src/styles/doctor/DoctorAppointmentsStyles.js
 
-import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { theme } from '../../theme/theme';
 
-export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f7fa',
-  },
+const { COLORS, SPACING, SHADOWS } = theme;
 
-  header: {
-    height: Platform.OS === 'android' ? 90 : 110,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 50,
-    backgroundColor: '#2c8e7c',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+// Nếu theme chưa có BORDER_RADIUS → mình dùng số cố định luôn, không lỗi nữa!
+const BORDER_RADIUS = {
+  lg: 16,
+  xl: 20,
+  xxl: 28,
+};
+
+export const DoctorAppointmentsStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+
+  headerGradient: {
+    paddingTop: 50,
+    paddingBottom: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
   },
-  backButton: {
-    padding: 4,
-  },
+  headerContent: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: {
-    fontSize: 20,
+    flex: 1,
+    marginLeft: SPACING.lg,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
+    color: COLORS.textOnPrimary,
   },
 
-  // ==================== TABS ====================
-  tabContainer: {
+  // TAB BAR SIÊU ĐẸP
+  tabBarContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f8fafc',
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.lg,
+    padding: 6,
+    borderRadius: BORDER_RADIUS.xl,
+    ...SHADOWS.small,
   },
-  tab: {
+  tabButton: isActive => ({
     flex: 1,
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 8,
+    borderRadius: 16,
+    backgroundColor: isActive ? COLORS.primary : '#e2e8f0',
     marginHorizontal: 4,
-  },
-  activeTab: {
-    backgroundColor: '#e8f4f2',
-  },
-  tabText: {
-    fontSize: 12,
-    color: '#7f8c8d',
+    ...SHADOWS.small,
+  }),
+  tabText: isActive => ({
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: isActive ? '#ffffff' : '#475569',
+    letterSpacing: 0.6,
     textAlign: 'center',
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: '#2c8e7c',
-    fontWeight: '700',
-  },
-  activeTabIndicator: {
-    marginTop: 6,
-    height: 3,
-    width: '60%',
-    backgroundColor: '#2c8e7c',
-    borderRadius: 2,
-  },
+    includeFontPadding: false,
+  }),
 
-  // ==================== CARD ====================
-  card: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+  itemWrapper: { marginHorizontal: SPACING.lg, marginBottom: SPACING.lg },
+  itemCard: {
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+    backgroundColor: COLORS.surface,
+    ...SHADOWS.card,
   },
-  cardHeader: {
+  cardContent: { padding: SPACING.lg },
+
+  itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.md,
   },
-  patientName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2c3e50',
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    minWidth: 90,
+  patientName: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  statusText: { fontSize: 9, fontWeight: '800', color: COLORS.textOnPrimary },
+
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  iconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginRight: SPACING.md,
   },
-  statusBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+  infoText: { flex: 1, fontSize: 13, color: COLORS.textPrimary, fontWeight: '500' },
+  timeText: { fontWeight: '600', color: COLORS.primary },
+
+  symptomsBox: {
+    backgroundColor: COLORS.primary + '10',
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginVertical: SPACING.md,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  symptomsLabel: { fontSize: 12, fontWeight: '700', color: COLORS.primaryDark },
+  symptomsText: { fontSize: 12.5, color: COLORS.textPrimary, lineHeight: 19 },
+
+  actionContainer: { marginTop: SPACING.lg, gap: SPACING.sm },
+
+  // NÚT CHÍNH (BẮT ĐẦU KHÁM NGAY) – FULL WIDTH
+  mainActionButton: {
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    ...SHADOWS.small,
   },
 
-  department: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    marginBottom: 4,
-  },
-  time: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2c8e7c',
-    marginBottom: 8,
-  },
-  symptoms: {
-    fontSize: 14,
-    color: '#34495e',
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  cancelInfo: {
-    fontSize: 13,
-    color: '#e74c3c',
-    fontStyle: 'italic',
-    marginTop: 8,
-  },
+  // NÚT "XEM LẠI BỆNH ÁN" – ĐÃ FIX HOÀN HẢO: KHÔNG DÀI QUÁ, KHÔNG CAO QUÁ, KHÔNG LỖI!
+secondaryActionButton: {
+  alignSelf: 'center',
+  height: 52,
+  paddingHorizontal: 36,
+  borderRadius: 26,
+  overflow: 'hidden',
+  marginTop: 20,
+  // BỎ HẾT BÓNG ĐI – SẠCH SẼ 100%
+  backgroundColor: 'transparent',
+},
 
-  // ==================== ACTION BUTTONS ====================
-  actionButtons: {
+  mainActionButtonGradient: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  confirmBtn: {
-    flex: 1,
-    backgroundColor: '#27ae60',
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: BORDER_RADIUS.lg,
   },
-  confirmBtnText: {
-    color: '#fff',
+  mainActionButtonText: {
+    marginLeft: 10,
+    fontSize: 14,
     fontWeight: '700',
-    fontSize: 15,
+    color: COLORS.textOnPrimary,
   },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: '#e74c3c',
-    paddingVertical: 12,
-    borderRadius: 8,
+
+  confirmButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    paddingVertical: 13,
+    borderRadius: BORDER_RADIUS.lg,
+    ...SHADOWS.small,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.danger,
+    paddingVertical: 13,
+    borderRadius: BORDER_RADIUS.lg,
+    ...SHADOWS.small,
+  },
+  actionButtonText: {
     marginLeft: 8,
-  },
-  cancelBtnText: {
-    color: '#fff',
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 15,
+    color: COLORS.textOnPrimary,
   },
 
-  // ==================== EMPTY & LOADING ====================
-  emptyText: {
-    fontSize: 16,
-    color: '#95a5a6',
-    textAlign: 'center',
-    lineHeight: 24,
+  centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  loadingText: { marginTop: 16, fontSize: 14, color: COLORS.textSecondary },
+  errorText: { marginTop: 16, fontSize: 15, color: COLORS.danger, textAlign: 'center' },
+  emptyText: { marginTop: 24, fontSize: 16, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24 },
+  retryButton: {
+    marginTop: 24,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 13,
+    borderRadius: BORDER_RADIUS.xl,
   },
 });

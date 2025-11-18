@@ -1,5 +1,4 @@
-// src/screens/doctor/CreateMedicalRecord.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,11 +9,23 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../api/supabase';
+import theme from '../../theme/theme';
+
+const {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  SHADOWS,
+  FONT_SIZE,
+  FONT_WEIGHT,
+} = theme;
 
 export default function CreateMedicalRecord() {
   const navigation = useNavigation();
@@ -22,68 +33,81 @@ export default function CreateMedicalRecord() {
   const {
     appointmentId,
     patientId,
-    patientName,
-    department = 'Phòng khám',
+    patientName = 'Bệnh nhân',
     onSaveSuccess,
   } = route.params || {};
 
-  const [loading, setLoading] = useState(false);
-
-  // Hồ sơ bệnh án
+  const [saving, setSaving] = useState(false);
   const [diagnosis, setDiagnosis] = useState('');
   const [treatment, setTreatment] = useState('');
   const [notes, setNotes] = useState('');
-
-  // Đơn thuốc
   const [medicines, setMedicines] = useState([
-    { medicine_name: '', dosage: '', duration: '' },
+    { id: Date.now(), name: '', dosage: '', duration: '', query: '', suggestions: [], show: false }
   ]);
+  const [allMedicines, setAllMedicines] = useState([]);
 
-  // Kết quả xét nghiệm (tùy chọn)
-  const [testResults, setTestResults] = useState([
-    { test_type: '', test_name: '', result_value: '', unit: '', reference_range: '' },
-  ]);
+  useEffect(() => {
+    fetchMedicines();
+  }, []);
 
-  // LẤY UID BÁC SĨ HIỆN TẠI – CHẮC CHẮN ĐÚNG 100%
-  const getCurrentDoctorId = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id;
+  const fetchMedicines = async () => {
+    try {
+      const { data } = await supabase.from('medicines').select('name, generic_name, dosage, form').order('name');
+      setAllMedicines(data || []);
+    } catch (err) { console.log(err); }
   };
 
-  const addMedicineRow = () => setMedicines([...medicines, { medicine_name: '', dosage: '', duration: '' }]);
-  const removeMedicineRow = (i) => medicines.length > 1 && setMedicines(medicines.filter((_, idx) => idx !== i));
-
-  const updateMedicine = (index, field, value) => {
-    const updated = [...medicines];
-    updated[index][field] = value;
-    setMedicines(updated);
-  };
-
-  const addTestRow = () => setTestResults([...testResults, { test_type: '', test_name: '', result_value: '', unit: '', reference_range: '' }]);
-  const updateTest = (index, field, value) => {
-    const updated = [...testResults];
-    updated[index][field] = value;
-    setTestResults(updated);
-  };
-
-  const handleSave = async () => {
-    if (!diagnosis.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập chẩn đoán');
+  const searchMedicine = (text, index) => {
+    if (!text.trim()) {
+      updateMedicine(index, 'suggestions', []);
+      updateMedicine(index, 'show', false);
       return;
     }
+    const filtered = allMedicines
+      .filter(m => m.name.toLowerCase().includes(text.toLowerCase()) || 
+                  (m.generic_name && m.generic_name.toLowerCase().includes(text.toLowerCase())))
+      .slice(0, 6);
+    updateMedicine(index, 'suggestions', filtered);
+    updateMedicine(index, 'show', true);
+  };
 
-    setLoading(true);
+  const selectMedicine = (med, index) => {
+    updateMedicine(index, 'name', med.name);
+    updateMedicine(index, 'dosage', med.dosage || '1 viên/lần x 3 lần/ngày');
+    updateMedicine(index, 'query', med.name);
+    updateMedicine(index, 'suggestions', []);
+    updateMedicine(index, 'show', false);
+  };
 
+  const updateMedicine = (index, field, value) => {
+    setMedicines(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const addMedicine = () => setMedicines(prev => [...prev, {
+    id: Date.now(), name: '', dosage: '', duration: '', query: '', suggestions: [], show: false
+  }]);
+
+  const removeMedicine = (index) => {
+    if (medicines.length > 1) setMedicines(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const saveRecord = async () => {
+    if (!diagnosis.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập chẩn đoán');
+
+    setSaving(true);
     try {
-      const doctorId = await getCurrentDoctorId();
-      if (!doctorId) throw new Error('Không xác định được bác sĩ hiện tại');
+      const { data: { user } } = await supabase.auth.getUser();
+      const doctorId = user?.id;
 
-      // 1. Tạo medical_records – DÙNG doctorId = auth.uid() → RLS QUA 100%
-      const { data: record, error: recordError } = await supabase
+      const { data: record } = await supabase
         .from('medical_records')
         .insert({
           patient_id: patientId,
-          doctor_id: doctorId,           // ← QUAN TRỌNG NHẤT: DÙNG UID TRỰC TIẾP
+          doctor_id: doctorId,
           appointment_id: appointmentId,
           diagnosis: diagnosis.trim(),
           treatment: treatment.trim() || null,
@@ -92,151 +116,215 @@ export default function CreateMedicalRecord() {
         .select()
         .single();
 
-      if (recordError) throw recordError;
-
-      // 2. Lưu đơn thuốc
-      const validMedicines = medicines.filter(m => m.medicine_name.trim());
-      if (validMedicines.length > 0) {
-        const prescData = validMedicines.map(m => ({
-          record_id: record.id,
-          medicine_name: m.medicine_name.trim(),
-          dosage: m.dosage.trim() || null,
-          duration: m.duration.trim() || null,
-        }));
-        const { error: prescError } = await supabase.from('prescriptions').insert(prescData);
-        if (prescError) throw prescError;
+      const validMeds = medicines.filter(m => m.name.trim());
+      if (validMeds.length > 0) {
+        await supabase.from('prescriptions').insert(
+          validMeds.map(m => ({
+            record_id: record.id,
+            medicine_name: m.name,
+            dosage: m.dosage,
+            duration: m.duration || null,
+          }))
+        );
       }
 
-      // 3. Lưu kết quả xét nghiệm
-      const validTests = testResults.filter(t => t.test_name.trim());
-      if (validTests.length > 0) {
-        const testData = validTests.map(t => ({
-          patient_id: patientId,
-          appointment_id: appointmentId,
-          test_type: t.test_type.trim() || null,
-          test_name: t.test_name.trim(),
-          result_value: t.result_value.trim() || null,
-          unit: t.unit.trim() || null,
-          reference_range: t.reference_range.trim() || null,
-          status: t.result_value.trim() ? 'completed' : 'pending',
-          performed_at: new Date().toISOString().split('T')[0],
-        }));
-        const { error: testError } = await supabase.from('test_results').insert(testData);
-        if (testError) throw testError;
-      }
+      await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
 
-      // 4. Cập nhật trạng thái lịch hẹn → đã khám xong
-      await supabase
-        .from('appointments')
-        .update({ status: 'completed' })
-        .eq('id', appointmentId);
-
-      Alert.alert(
-        'HOÀN TẤT KHÁM BỆNH',
-        'Hồ sơ bệnh án và đơn thuốc đã được lưu thành công!',
-        [{ text: 'OK', onPress: () => {
+      Alert.alert('Thành công', 'Bệnh án đã được lưu!', [
+        { text: 'OK', onPress: () => {
           onSaveSuccess?.();
-          navigation.navigate('DoctorMain', { screen: 'AppointmentsTab' }); // quay về lịch khám
-        }}]
-      );
-
+          navigation.navigate('DoctorMain', { screen: 'AppointmentsTab' });
+        }}
+      ]);
     } catch (err) {
-      console.error('Lỗi lưu hồ sơ:', err);
-      Alert.alert('Lỗi', err.message || 'Không thể lưu hồ sơ bệnh án. Vui lòng thử lại.');
+      Alert.alert('Lỗi', err.message || 'Không thể lưu');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <LinearGradient colors={['#2c8e7c', '#1e6b5f']} style={{ flex: 1 }}>
-        <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-          {/* Header */}
-          <View style={{ paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#2c8e7c' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
-                <Ionicons name="arrow-back" size={28} color="#fff" />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: '#fff' }}>Tạo hồ sơ bệnh án</Text>
-              <View style={{ width: 40 }} />
-            </View>
-            <Text style={{ color: '#e0f2f1', marginTop: 8, fontSize: 16 }}>
-              Bệnh nhân: <Text style={{ fontWeight: '700' }}>{patientName || 'Không rõ'}</Text>
-            </Text>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      
+      {/* HEADER XANH APPLE ĐẸP LUNG LINH */}
+      <LinearGradient colors={GRADIENTS.header} style={{ paddingTop: theme.headerPaddingTop, paddingBottom: SPACING.xxl, paddingHorizontal: SPACING.xl }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={28} color="#fff" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.heavy, color: '#fff' }}>
+            Tạo bệnh án
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <Text style={{ color: '#fff', fontSize: FONT_SIZE.lg, marginTop: SPACING.sm, opacity: 0.9 }}>
+          Bệnh nhân: <Text style={{ fontWeight: FONT_WEIGHT.bold }}>{patientName}</Text>
+        </Text>
+      </LinearGradient>
+
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: COLORS.background, marginTop: -20 }}
+        contentContainerfilt={{ padding: SPACING.xl, paddingTop: SPACING.xxl }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* CHẨN ĐOÁN */}
+        <View style={s.card}>
+          <Text style={s.label}>Chẩn đoán <Text style={{ color: COLORS.danger }}>*</Text></Text>
+          <TextInput
+            style={s.textArea}
+            placeholder="Viêm họng cấp, sốt..."
+            value={diagnosis}
+            onChangeText={setDiagnosis}
+            multiline
+          />
+        </View>
+
+        {/* ĐƠN THUỐC – SIÊU ĐẸP, SIÊU NHANH */}
+        <View style={s.card}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg }}>
+            <Text style={s.label}>Đơn thuốc</Text>
+            <TouchableOpacity onPress={addMedicine}>
+              <Ionicons name="add-circle" size={36} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
-            {/* Chẩn đoán */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Chẩn đoán *</Text>
-              <TextInput style={styles.textArea} placeholder="Nhập chẩn đoán..." value={diagnosis} onChangeText={setDiagnosis} multiline />
-            </View>
-
-            {/* Điều trị */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Phương pháp điều trị / Dặn dò</Text>
-              <TextInput style={styles.textArea} placeholder="Tái khám, chế độ sinh hoạt..." value={treatment} onChangeText={setTreatment} multiline />
-            </View>
-
-            {/* Đơn thuốc */}
-            <View style={styles.section}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.label}>Đơn thuốc</Text>
-                <TouchableOpacity onPress={addMedicineRow}><Ionicons name="add-circle" size={28} color="#2c8e7c" /></TouchableOpacity>
+          {medicines.map((med, i) => (
+            <View key={med.id} style={{ marginBottom: SPACING.xl }}>
+              <View style={s.searchBox}>
+                <Ionicons name="search" size={20} color={COLORS.textLight} style={{ marginRight: SPACING.md }} />
+                <TextInput
+                  style={{ flex: 1, fontSize: FONT_SIZE.lg }}
+                  placeholder="Tìm tên thuốc..."
+                  value={med.query}
+                  onChangeText={t => { updateMedicine(i, 'query', t); searchMedicine(t, i); }}
+                />
+                {medicines.length > 1 && (
+                  <TouchableOpacity onPress={() => removeMedicine(i)}>
+                    <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+                  </TouchableOpacity>
+                )}
               </View>
-              {medicines.map((med, i) => (
-                <View key={i} style={styles.row}>
-                  <TextInput style={styles.input} placeholder="Tên thuốc" value={med.medicine_name} onChangeText={t => updateMedicine(i, 'medicine_name', t)} />
-                  <TextInput style={[styles.input, { flex: 0.7 }]} placeholder="Liều" value={med.dosage} onChangeText={t => updateMedicine(i, 'dosage', t)} />
-                  <TextInput style={[styles.input, { flex: 0.7 }]} placeholder="Thời gian" value={med.duration} onChangeText={t => updateMedicine(i, 'duration', t)} />
-                  {medicines.length > 1 && <TouchableOpacity onPress={() => removeMedicineRow(i)}><Ionicons name="trash" size={24} color="#e74c3c" /></TouchableOpacity>}
-                </View>
-              ))}
-            </View>
 
-            {/* Kết quả xét nghiệm */}
-            <View style={styles.section}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.label}>Kết quả xét nghiệm (nếu có)</Text>
-                <TouchableOpacity onPress={addTestRow}><Ionicons name="add-circle" size={28} color="#2c8e7c" /></TouchableOpacity>
+              {med.show && med.suggestions.length > 0 && (
+                <View style={s.suggestions}>
+                  {med.suggestions.map((s, idx) => (
+                    <TouchableOpacity key={idx} style={s.suggestion} onPress={() => selectMedicine(s, i)}>
+                      <Text style={{ fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary }}>{s.name}</Text>
+                      <Text style={{ fontSize: FONT_SIZE.sm, color: COLORS.textSecondary }}>
+                        {s.generic_name || s.dosage}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md }}>
+                <TextInput style={s.input} placeholder="Liều lượng" value={med.dosроб} onChangeText={t => updateMedicine(i, 'dosage', t)} />
+                <TextInput style={s.input} placeholder="Thời gian dùng" value={med.duration} onChangeText={t => updateMedicine(i, 'duration', t)} />
               </View>
-              {testResults.map((t, i) => (
-                <View key={i} style={styles.row}>
-                  <TextInput style={styles.input} placeholder="Loại" value={t.test_type} onChangeText={v => updateTest(i, 'test_type', v)} />
-                  <TextInput style={styles.input} placeholder="Tên xét nghiệm" value={t.test_name} onChangeText={v => updateTest(i, 'test_name', v)} />
-                  <TextInput style={[styles.input, { flex: 0.6 }]} placeholder="Kết quả" value={t.result_value} onChangeText={v => updateTest(i, 'result_value', v)} keyboardType="numeric" />
-                  <TextInput style={[styles.input, { flex: 0.5 }]} placeholder="Đơn vị" value={t.unit} onChangeText={v => updateTest(i, 'unit', v)} />
-                </View>
-              ))}
             </View>
-
-            {/* Ghi chú */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Ghi chú thêm</Text>
-              <TextInput style={styles.textArea} placeholder="Thông tin khác..." value={notes} onChangeText={setNotes} multiline />
-            </View>
-
-            {/* Nút lưu */}
-            <TouchableOpacity style={{ marginVertical: 30 }} onPress={handleSave} disabled={loading}>
-              <LinearGradient colors={['#2c8e7c', '#1e6b5f']} style={styles.saveBtn}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>HOÀN TẤT KHÁM BỆNH</Text>}
-              </LinearGradient>
-            </TouchableOpacity>
-          </ScrollView>
+          ))}
         </View>
-      </LinearGradient>
+
+        {/* DẶN DÒ */}
+        <View style={s.card}>
+          <Text style={s.label}>Dặn dò / Hướng dẫn điều trị</Text>
+          <TextInput style={s.textArea} placeholder="Uống nhiều nước, nghỉ ngơi..." value={treatment} onChangeText={setTreatment} multiline />
+        </View>
+
+        {/* GHI CHÚ */}
+        <View style={s.card}>
+          <Text style={s.label}>Ghi chú thêm</Text>
+          <TextInput style={s.textArea} placeholder="Thông tin bổ sung..." value={notes} onChangeText={setNotes} multiline />
+        </View>
+
+        {/* NÚT HOÀN TẤT */}
+        <TouchableOpacity onPress={saveRecord} disabled={saving} style={{ marginVertical: SPACING.xxl }}>
+          <LinearGradient colors={GRADIENTS.primaryButton} style={s.saveBtn}>
+            {saving ? (
+              <ActivityIndicator color="#fff" size="large" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-done" size={30} color="#fff" />
+                <Text style={s.saveText}>HOÀN TẤT KHÁM BỆNH</Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// Styles đẹp lung linh
-const styles = {
-  section: { marginBottom: 24, backgroundColor: '#fff', padding: 18, borderRadius: 16, elevation: 4 },
-  label: { fontSize: 17, fontWeight: '700', color: '#1f2937', marginBottom: 12 },
-  textArea: { backgroundColor: '#f9fafb', borderRadius: 12, padding: 14, fontSize: 16, textAlignVertical: 'top', minHeight: 100 },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-  input: { flex: 1, backgroundColor: '#f3f4f6', padding: 14, borderRadius: 12, fontSize: 15 },
-  saveBtn: { padding: 18, alignItems: 'center', borderRadius: 16, elevation: 10 },
-  saveText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+// STYLE DỄ THƯƠNG, CHUẨN THEME, ĐẸP KHÔNG CHỊU NỔI
+const s = {
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+    ...SHADOWS.card,
+  },
+  label: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  textArea: {
+    backgroundColor: '#F2F4F7',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    fontSize: FONT_SIZE.lg,
+    minHeight: 110,
+    textAlignVertical: 'top',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F2F4F7',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    fontSize: FONT_SIZE.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F4F7',
+    borderRadius: BORDER_RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  suggestions: {
+    backgroundColor: '#fff',
+    borderRadius: BORDER_RADIUS.xl,
+    marginTop: SPACING.sm,
+    maxHeight: 240,
+    ...SHADOWS.card,
+  },
+  suggestion: {
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.lg,
+    paddingVertical: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xxl,
+    ...SHADOWS.header,
+  },
+  saveText: {
+    color: '#fff',
+    fontSize: FONT_SIZE.xxl,
+    fontWeight: FONT_WEIGHT.heavy,
+    letterSpacing: 1,
+  },
 };

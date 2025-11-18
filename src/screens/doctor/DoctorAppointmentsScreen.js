@@ -1,4 +1,5 @@
 // src/screens/doctor/DoctorAppointmentsScreen.js
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -8,20 +9,27 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
-  Platform,
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+
 import { DoctorAppointmentController } from '../../controllers/doctor/doctor_appointment_controller';
+import { supabase } from '../../api/supabase';
+
+// Theme & Styles
+import { theme } from '../../theme/theme';
+import { DoctorAppointmentsStyles as styles } from '../../styles/doctor/DoctorAppointmentsStyles';
+
+const { COLORS, GRADIENTS } = theme;
 
 const TABS = [
-  { key: 'today', title: 'Hôm nay', icon: 'today-outline' },
-  { key: 'pending', title: 'Chờ xác nhận', icon: 'time-outline' },
-  { key: 'confirmed', title: 'Đã xác nhận', icon: 'checkmark-circle-outline' },
-  { key: 'completed', title: 'Đã khám xong', icon: 'medkit-outline' },
-  { key: 'cancelled', title: 'Đã hủy', icon: 'close-circle-outline' },
+  { key: 'today', title: 'Hôm nay' },
+  { key: 'pending', title: 'Chờ xác nhận' },
+  { key: 'confirmed', title: 'Đã xác nhận' },
+  { key: 'completed', title: 'Đã khám xong' },
+  { key: 'cancelled', title: 'Đã hủy' },
 ];
 
 export default function DoctorAppointmentsScreen() {
@@ -36,7 +44,6 @@ export default function DoctorAppointmentsScreen() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Hàm tải dữ liệu – dùng chung cho load lần đầu & refresh
   const loadAppointments = async (isRefresh = false) => {
     if (!isRefresh) {
       setLoading(true);
@@ -48,81 +55,70 @@ export default function DoctorAppointmentsScreen() {
       setAppointments,
       setLoading,
       onError: (msg) => setError(msg),
-      showAlert: !isRefresh, // Chỉ hiện Alert khi load lần đầu hoặc reload thủ công
+      showAlert: !isRefresh,
     });
 
     setRefreshing(false);
   };
 
-  // Load lần đầu
   useEffect(() => {
     loadAppointments();
   }, []);
 
-  // Tự động reload khi quay lại màn hình (chỉ các tab quan trọng)
   useFocusEffect(
     useCallback(() => {
       if (['today', 'pending', 'confirmed'].includes(activeTab)) {
-        loadAppointments(false);
+        loadAppointments();
       }
     }, [activeTab])
   );
 
-  // Lọc dữ liệu theo tab
   useEffect(() => {
     let result = [...appointments];
 
-    if (activeTab === 'today') {
-      result = appointments.filter(app => {
-        const dateStr = app.appointment_date || app.date;
-        if (!dateStr) return false;
-        const appDate = new Date(dateStr);
-        const d = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
-        return d.getTime() === today.getTime();
-      });
-    } else if (activeTab === 'pending') {
-      result = appointments.filter(a => a.status === 'pending');
-    } else if (activeTab === 'confirmed') {
-      result = appointments.filter(a => a.status === 'confirmed');
-    } else if (activeTab === 'completed') {
-      result = appointments.filter(a => a.status === 'completed');
-    } else if (activeTab === 'cancelled') {
-      result = appointments.filter(a =>
-        ['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(a.status)
-      );
+    switch (activeTab) {
+      case 'today':
+        result = appointments.filter(app => {
+          const dateStr = app.appointment_date || app.date;
+          if (!dateStr) return false;
+          const appDate = new Date(dateStr);
+          const d = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+          return d.getTime() === today.getTime();
+        });
+        break;
+      case 'pending':
+        result = appointments.filter(a => a.status === 'pending');
+        break;
+      case 'confirmed':
+        result = appointments.filter(a => a.status === 'confirmed');
+        break;
+      case 'completed':
+        result = appointments.filter(a => a.status === 'completed');
+        break;
+      case 'cancelled':
+        result = appointments.filter(a =>
+          ['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(a.status)
+        );
+        break;
     }
 
-    // Sắp xếp theo thời gian
-    result.sort((a, b) => 
-      new Date(a.appointment_date || a.date || 0) - new Date(b.appointment_date || b.date || 0)
-    );
+    result.sort((a, b) => {
+      const dateA = new Date(a.appointment_date || a.date || 0);
+      const dateB = new Date(b.appointment_date || b.date || 0);
+      return dateA - dateB;
+    });
 
     setFiltered(result);
   }, [appointments, activeTab]);
 
-  const onRefresh = useCallback(() => {
-    loadAppointments(true);
-  }, []);
-
-  // Kiểm tra có thể bắt đầu khám chưa (±3h đến +15 phút)
-  const isTimeToStart = (dateStr) => {
-    if (!dateStr) return false;
-    const now = new Date();
-    const appointmentTime = new Date(dateStr);
-    const diffMinutes = (appointmentTime - now) / 60000;
-    return diffMinutes >= -180 && diffMinutes <= 15;
-  };
+  const onRefresh = useCallback(() => loadAppointments(true), []);
 
   const startExamination = (item) => {
     if (item.status === 'completed') {
-      Alert.alert(
-        'Đã khám xong',
-        'Bệnh nhân này đã được khám. Bạn muốn xem lại bệnh án?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Xem bệnh án', onPress: () => navigation.navigate('ViewMedicalRecord', { appointmentId: item.id }) },
-        ]
-      );
+      Alert.alert('Đã khám xong', 'Bạn muốn xem lại bệnh án?', [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Xem bệnh án', onPress: () => navigation.navigate('ViewMedicalRecord', { appointmentId: item.id }) },
+      ]);
       return;
     }
 
@@ -140,17 +136,14 @@ export default function DoctorAppointmentsScreen() {
     });
   };
 
-  const getStatusGradient = (status) => {
-    const map = {
-      pending: ['#f39c12', '#e67e22'],
-      confirmed: ['#27ae60', '#2ecc71'],
-      completed: ['#2980b9', '#3498db'],
-      patient_cancelled: ['#e74c3c', '#c0392b'],
-      doctor_cancelled: ['#9b59b6', '#8e44ad'],
-      cancelled: ['#e74c3c', '#c0392b'],
-    };
-    return map[status] || ['#95a5a6', '#7f8c8d'];
-  };
+  const getStatusGradient = (status) => ({
+    pending: [COLORS.warning, '#f39c12'],
+    confirmed: [COLORS.success, '#2ecc71'],
+    completed: [COLORS.primary, COLORS.primaryLight],
+    patient_cancelled: [COLORS.danger, '#e74c3c'],
+    doctor_cancelled: [COLORS.accentPurple, COLORS.accentIndigo],
+    cancelled: [COLORS.danger, '#e74c3c'],
+  })[status] || [COLORS.disabled, COLORS.textLight];
 
   const renderItem = ({ item }) => {
     const name = item.patient?.full_name || item.patient_name || 'Bệnh nhân';
@@ -159,19 +152,56 @@ export default function DoctorAppointmentsScreen() {
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const dateStr = date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
 
-    const canStart = item.status === 'confirmed' && isTimeToStart(item.appointment_date || item.date);
+    const isPending = item.status === 'pending';
+    const canStart = item.status === 'confirmed';
     const isCompleted = item.status === 'completed';
     const [g1, g2] = getStatusGradient(item.status);
 
+    const confirmAppointment = async () => {
+      Alert.alert('Xác nhận lịch', 'Xác nhận lịch khám này?', [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xác nhận',
+          onPress: async () => {
+            const { error } = await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', item.id);
+            if (error) Alert.alert('Lỗi', error.message);
+            else {
+              Alert.alert('Thành công', 'Đã xác nhận lịch khám!');
+              loadAppointments();
+            }
+          },
+        },
+      ]);
+    };
+
+    const cancelAppointment = async () => {
+      Alert.alert('Hủy lịch', 'Bạn chắc chắn muốn hủy?', [
+        { text: 'Không', style: 'cancel' },
+        {
+          text: 'Hủy lịch',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase.from('appointments').update({ status: 'doctor_cancelled' }).eq('id', item.id);
+            if (error) Alert.alert('Lỗi', error.message);
+            else {
+              Alert.alert('Đã hủy', 'Lịch khám đã được hủy');
+              loadAppointments();
+            }
+          },
+        },
+      ]);
+    };
+
     return (
-      <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
-        <LinearGradient colors={['#ffffff', '#f8fafc']} style={{ borderRadius: 20, elevation: 12, shadowColor: '#000' }}>
-          <View style={{ padding: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 21, fontWeight: '900', color: '#2c3e50' }}>{name}</Text>
-              <LinearGradient colors={[g1, g2]} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 30 }}>
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
-                  {item.status === 'pending' && 'CHỜ XÁC NHẬN'}
+      <View style={styles.itemWrapper}>
+        <View style={styles.itemCard}>
+          <View style={styles.cardContent}>
+            {/* Tên bệnh nhân + Trạng thái */}
+            <View style={styles.itemHeader}>
+              <Text style={styles.patientName}>{name}</Text>
+              <LinearGradient colors={[g1, g2]} style={styles.statusBadge}>
+                <Text style={styles.statusText}>
+                  {isPending && 'CHỜ XÁC NHẬN'}
                   {item.status === 'confirmed' && 'ĐÃ XÁC NHẬN'}
                   {item.status === 'completed' && 'ĐÃ KHÁM XONG'}
                   {['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(item.status) && 'ĐÃ HỦY'}
@@ -179,112 +209,142 @@ export default function DoctorAppointmentsScreen() {
               </LinearGradient>
             </View>
 
-            <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Icon name="business" size={20} color="#2c8e7c" />
-              <Text style={{ fontSize: 17, color: '#34495e', fontWeight: '700' }}>{dept}</Text>
+            {/* Khoa */}
+            <View style={styles.infoRow}>
+              <View style={styles.iconWrapper}>
+                <Icon name="business" size={19} color={COLORS.primary} />
+              </View>
+              <Text style={styles.infoText}>{dept}</Text>
             </View>
 
-            <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Icon name="calendar" size={20} color="#2c8e7c" />
-              <Text style={{ fontSize: 17, color: '#2c8e7c', fontWeight: '800' }}>{dateStr} • {timeStr}</Text>
+            {/* Thời gian */}
+            <View style={styles.infoRow}>
+              <View style={styles.iconWrapper}>
+                <Icon name="calendar" size={19} color={COLORS.primary} />
+              </View>
+              <Text style={[styles.infoText, styles.timeText]}>{dateStr} • {timeStr}</Text>
             </View>
 
+            {/* Triệu chứng */}
             {item.symptoms && (
-              <View style={{ marginTop: 14, backgroundColor: '#e8f4f8', padding: 14, borderRadius: 16, borderLeftWidth: 5, borderLeftColor: '#3498db' }}>
-                <Text style={{ fontSize: 16, color: '#2c3e50', lineHeight: 22 }}>
-                  <Text style={{ fontWeight: '800' }}>Triệu chứng:</Text> {item.symptoms}
-                </Text>
+              <View style={styles.symptomsBox}>
+                <Text style={styles.symptomsLabel}>Triệu chứng:</Text>
+                <Text style={styles.symptomsText}>{item.symptoms}</Text>
               </View>
             )}
 
-            <View style={{ marginTop: 20 }}>
+            {/* Nút hành động */}
+            <View style={styles.actionContainer}>
+              {isPending && (
+                <>
+                  <TouchableOpacity onPress={confirmAppointment} style={styles.confirmButton}>
+                    <Icon name="checkmark-circle" size={26} color={COLORS.textOnPrimary} />
+                    <Text style={styles.actionButtonText}>XÁC NHẬN LỊCH</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={cancelAppointment} style={styles.cancelButton}>
+                    <Icon name="close-circle" size={26} color={COLORS.textOnPrimary} />
+                    <Text style={styles.actionButtonText}>HỦY LỊCH</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
               {canStart && (
-                <TouchableOpacity
-                  onPress={() => startExamination(item)}
-                  style={{ backgroundColor: '#2c8e7c', paddingVertical: 18, borderRadius: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 }}
-                >
-                  <Icon name="medical" size={28} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>BẮT ĐẦU KHÁM NGAY</Text>
+                <TouchableOpacity onPress={() => startExamination(item)} style={styles.mainActionButton}>
+                  <LinearGradient colors={GRADIENTS.primaryButton} style={styles.mainActionButtonGradient}>
+                    <Icon name="medical" size={30} color={COLORS.textOnPrimary} />
+                    <Text style={styles.mainActionButtonText}>BẮT ĐẦU KHÁM NGAY</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
 
-              {isCompleted && (
-                <TouchableOpacity
-                  onPress={() => startExamination(item)}
-                  style={{ backgroundColor: '#3498db', paddingVertical: 18, borderRadius: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 }}
-                >
-                  <Icon name="document-text" size={28} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>XEM LẠI BỆNH ÁN</Text>
-                </TouchableOpacity>
-              )}
+{isCompleted && (
+  <TouchableOpacity
+    activeOpacity={0.9}
+    onPress={() => startExamination(item)}
+    style={styles.secondaryActionButton}
+  >
+    <LinearGradient
+      colors={[COLORS.primary, COLORS.primaryLight]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={{
+        height: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 26,
+        paddingHorizontal: 20,
+      }}
+    >
+      <Icon name="document-text-outline" size={24} color="#fff" style={{ marginRight: 12 }} />
+      <Text style={{
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#fff',
+        letterSpacing: 0.8,
+      }}>
+        XEM LẠI BỆNH ÁN
+      </Text>
+    </LinearGradient>
+  </TouchableOpacity>
+)}
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </View>
     );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f0f4f8' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#2c8e7c" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       {/* Header */}
-      <LinearGradient colors={['#2c8e7c', '#1e6b5f']} style={{ paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
+      <LinearGradient colors={GRADIENTS.header} style={styles.headerGradient}>
+        <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={30} color="#fff" />
+            <Icon name="arrow-back" size={30} color={COLORS.textOnPrimary} />
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 26, fontWeight: '900', color: '#fff', marginRight: 30 }}>
-            Lịch Khám Của Tôi
-          </Text>
+          <Text style={styles.headerTitle}>Lịch Khám Của Tôi</Text>
         </View>
       </LinearGradient>
 
-      {/* Tabs */}
-      <View style={{ backgroundColor: '#fff', paddingVertical: 14, flexDirection: 'row', justifyContent: 'space-around', elevation: 6 }}>
-        {TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            style={{
-              alignItems: 'center',
-              padding: 12,
-              borderRadius: 16,
-              backgroundColor: activeTab === tab.key ? '#2c8e7c' : 'transparent',
-              minWidth: 70,
-            }}
-          >
-            <Icon name={tab.icon} size={26} color={activeTab === tab.key ? '#fff' : '#7f8c8d'} />
-            <Text style={{ marginTop: 6, fontSize: 13, fontWeight: '800', color: activeTab === tab.key ? '#fff' : '#2c3e50' }}>
-              {tab.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Tab Bar – CHỈ GIỮ TEXT */}
+      {/* TAB BAR SIÊU ĐẸP – THAY ĐOẠN NÀY */}
+<View style={styles.tabBarContainer}>
+  {TABS.map(tab => (
+    <TouchableOpacity
+      key={tab.key}
+      activeOpacity={0.8}
+      onPress={() => setActiveTab(tab.key)}
+      style={styles.tabButton(activeTab === tab.key)}
+    >
+      <Text style={styles.tabText(activeTab === tab.key)}>
+        {tab.title}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
       {/* Nội dung */}
       {loading && !refreshing ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#2c8e7c" />
-          <Text style={{ marginTop: 20, fontSize: 18, color: '#7f8c8d', fontWeight: '600' }}>Đang tải lịch khám...</Text>
+        <View style={styles.centeredView}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Đang tải lịch khám...</Text>
         </View>
       ) : error ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
-          <Icon name="cloud-offline-outline" size={100} color="#e74c3c" />
-          <Text style={{ marginTop: 20, fontSize: 18, color: '#c0392b', fontWeight: '700', textAlign: 'center' }}>
-            {error}
-          </Text>
-          <TouchableOpacity
-            onPress={() => loadAppointments()}
-            style={{ marginTop: 20, backgroundColor: '#2c8e7c', paddingHorizontal: 30, paddingVertical: 14, borderRadius: 30 }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '800' }}>Thử lại</Text>
+        <View style={styles.centeredView}>
+          <Icon name="cloud-offline-outline" size={100} color={COLORS.danger} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => loadAppointments()} style={styles.retryButton}>
+            <Text style={styles.actionButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       ) : filtered.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
-          <Icon name="calendar-clear" size={120} color="#bdc3c7" />
-          <Text style={{ marginTop: 24, fontSize: 20, color: '#95a5a6', fontWeight: '700', textAlign: 'center' }}>
+        <View style={styles.centeredView}>
+          <Icon name="calendar-clear-outline" size={110} color={COLORS.textLight} />
+          <Text style={styles.emptyText}>
             {activeTab === 'today' ? 'Hôm nay bạn chưa có lịch khám nào' : 'Không có lịch hẹn nào'}
           </Text>
         </View>
@@ -293,10 +353,15 @@ export default function DoctorAppointmentsScreen() {
           data={filtered}
           keyExtractor={item => item.id.toString()}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2c8e7c']} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
           }
         />
       )}
