@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../../api/supabase";
 import { getAllDoctorsService, deleteDoctorService } from "../../services/doctor/doctorService";
 import { useNavigation } from "@react-navigation/native";
 import theme from "../../theme/theme";
@@ -50,134 +49,106 @@ export default function ManageDoctorsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
+  useEffect(() => { fetchDoctors(); }, []);
 
   useEffect(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
       setFilteredDoctors(doctors);
       return;
     }
-    const filtered = doctors.filter((doc) => {
-      const fullName = doc.user_profiles?.full_name?.toLowerCase() || "";
-      const deptName = doc.departments?.name?.toLowerCase() || "";
-      const specialization = doc.specialization?.toLowerCase() || "";
-      return fullName.includes(query) || deptName.includes(query) || specialization.includes(query);
-    });
+    const filtered = doctors.filter(doc =>
+      (doc.user_profiles?.full_name?.toLowerCase() || "").includes(q) ||
+      (doc.departments?.name?.toLowerCase() || "").includes(q) ||
+      (doc.specialization?.toLowerCase() || "").includes(q)
+    );
     setFilteredDoctors(filtered);
   }, [searchQuery, doctors]);
 
-  const handleDelete = (doctorId, doctorName) => {
-    Alert.alert(
-      "Xác nhận xóa",
-      `Xóa bác sĩ "${doctorName}"?\nHành động này không thể hoàn tác.`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Xóa",
-          style: "destructive",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const result = await deleteDoctorService(doctorId);
-              if (result.success) {
-                Alert.alert("Thành công", result.message, [
-                  { text: "OK", onPress: () => fetchDoctors() },
-                ]);
-              } else {
-                Alert.alert("Lỗi", result.message);
-              }
-            } catch (error) {
-              Alert.alert("Lỗi", "Xóa thất bại");
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+  const handleDelete = (id, name) => {
+    Alert.alert("Xóa bác sĩ", `Xóa bác sĩ "${name}"?`, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa", style: "destructive",
+        onPress: async () => {
+          setLoading(true);
+          const res = await deleteDoctorService(id);
+          Alert.alert(res.success ? "Thành công" : "Lỗi", res.message, [
+            { text: "OK", onPress: fetchDoctors }
+          ]);
+          setLoading(false);
+        }
+      },
+    ]);
   };
 
   const renderDoctorItem = ({ item }) => {
-    const fullName = item.user_profiles?.full_name || "Không tên";
-    const deptName = item.departments?.name || "Chưa có khoa";
-    const avatarLetter = fullName.charAt(0).toUpperCase();
+    const name = item.user_profiles?.full_name || "Bác sĩ";
+    const dept = item.departments?.name || "Chưa xác định";
+    const avatarLetter = name.charAt(0).toUpperCase();
 
     return (
       <TouchableOpacity
-        style={styles.doctorCard}
-        activeOpacity={0.85}
+        style={styles.cardWrapper}
+        activeOpacity={0.9}
         onPress={() => navigation.navigate("Chi tiết bác sĩ", { doctorId: item.id })}
       >
-        <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={styles.cardGradient}>
-          {/* Avatar */}
+        {/* CARD ĐẸP – NHỎ GỌN – MÀU TRẮNG SẠCH */}
+        <View style={styles.card}>
+          {/* Avatar nhỏ gọn */}
           <View style={styles.avatarWrapper}>
             {item.user_profiles?.avatar_url ? (
-              <Image source={{ uri: item.user_profiles.avatar_url }} style={styles.avatarImage} />
+              <Image source={{ uri: item.user_profiles.avatar_url }} style={styles.avatar} />
             ) : (
-              <LinearGradient colors={GRADIENTS.primaryButton} style={styles.avatarGradient}>
+              <LinearGradient colors={GRADIENTS.primaryButton} style={styles.avatar}>
                 <Text style={styles.avatarLetter}>{avatarLetter}</Text>
               </LinearGradient>
             )}
           </View>
 
-          {/* Info */}
-          <View style={styles.infoWrapper}>
-            <Text style={styles.doctorName}>{fullName}</Text>
-            <Text style={styles.doctorDept}>{deptName}</Text>
-            <View style={styles.row}>
-              <Ionicons name="medkit-outline" size={15} color={COLORS.textSecondary} />
-              <Text style={styles.detailText}>{item.specialization || "Chưa cập nhật"}</Text>
-            </View>
-            <View style={styles.row}>
-              <Ionicons name="location-outline" size={15} color={COLORS.textSecondary} />
-              <Text style={styles.detailText}>Phòng {item.room_number || "Chưa có"}</Text>
+          <View style={styles.content}>
+            <Text style={styles.name}>{name}</Text>
+            <Text style={styles.specialist}>{item.specialization || "Bác sĩ đa khoa"}</Text>
+            <View style={styles.deptRow}>
+              <Ionicons name="business-outline" size={13} color={COLORS.primary} />
+              <Text style={styles.deptText}>{dept}</Text>
             </View>
           </View>
 
-          {/* Actions */}
+          {/* Nút hành động nhỏ gọn, đẹp */}
           <View style={styles.actions}>
             <TouchableOpacity
               style={styles.editBtn}
-              onPress={(e) => {
-                e.stopPropagation();
-                navigation.navigate("Sửa bác sĩ", { doctorId: item.id });
-              }}
+              onPress={(e) => { e.stopPropagation(); navigation.navigate("Sửa bác sĩ", { doctorId: item.id }); }}
             >
-              <Ionicons name="pencil" size={22} color={COLORS.primary} />
+              <Ionicons name="pencil" size={18} color={COLORS.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.deleteBtn}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleDelete(item.id, fullName);
-              }}
+              onPress={(e) => { e.stopPropagation(); handleDelete(item.id, name); }}
             >
-              <Ionicons name="trash" size={22} color={COLORS.danger} />
+              <Ionicons name="trash" size={18} color={COLORS.danger} />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   };
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tải danh sách bác sĩ...</Text>
+        <Text style={styles.loadingText}>Đang tải...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle="light-content" />
 
-      {/* HEADER */}
+      {/* HEADER NHỎ GỌN */}
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={26} color="#FFF" />
@@ -188,36 +159,34 @@ export default function ManageDoctorsScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* SEARCH BAR */}
+      {/* SEARCH BAR NHỎ GỌN */}
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+        <Ionicons name="search" size={20} color="#94A3B8" />
         <TextInput
-          placeholder="Tìm tên, khoa, chuyên môn..."
+          placeholder="Tìm bác sĩ..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
-          placeholderTextColor={COLORS.textLight}
-          autoCorrect={false}
+          placeholderTextColor="#94A3B8"
         />
         {searchQuery ? (
-          <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearBtn}>
-            <Ionicons name="close-circle" size={22} color={COLORS.textSecondary} />
+          <TouchableOpacity onPress={() => setSearchQuery("")}>
+            <Ionicons name="close-circle" size={22} color="#94A3B8" />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* LIST */}
       <FlatList
         data={filteredDoctors}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderDoctorItem}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDoctors(true); }} colors={[COLORS.primary]} />}
+        contentContainerStyle={{ padding: SPACING.xl, paddingTop: SPACING.md }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDoctors(true); }} />}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="medkit-outline" size={80} color={COLORS.textLight} />
-            <Text style={styles.emptyTitle}>Chưa có bác sĩ nào</Text>
-            <Text style={styles.emptySubtitle}>Danh sách sẽ xuất hiện tại đây</Text>
+          <View style={styles.empty}>
+            <Ionicons name="medkit-outline" size={70} color="#CBD5E1" />
+            <Text style={styles.emptyText}>Chưa có bác sĩ nào</Text>
           </View>
         }
       />
@@ -225,9 +194,9 @@ export default function ManageDoctorsScreen() {
   );
 }
 
-// STYLES ĐÃ ĐƯỢC CHUYỂN DÙNG THEME MỚI – ĐẸP, SẠCH, ĐỒNG NHẤT
+// STYLE NHỎ GỌN – SẠCH – ĐẸP – KHÔNG MỜ NỮA!
 const styles = {
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
 
   header: {
     flexDirection: "row",
@@ -235,30 +204,12 @@ const styles = {
     justifyContent: "space-between",
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xl,
+    paddingBottom: SPACING.lg,
     borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: FONT_WEIGHT.bold,
-    color: "#FFFFFF",
-  },
-  homeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  backBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 22 },
+  homeBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 22 },
+  headerTitle: { fontSize: 22, fontWeight: FONT_WEIGHT.bold, color: "#FFF" },
 
   searchBar: {
     flexDirection: "row",
@@ -268,124 +219,60 @@ const styles = {
     marginTop: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.xl,
-    height: 52,
+    height: 50,
     ...SHADOWS.card,
   },
-  searchInput: {
-    flex: 1,
-    marginLeft: SPACING.md,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-  },
-  clearBtn: { padding: 4 },
+  searchInput: { flex: 1, marginLeft: 12, fontSize: 16, color: COLORS.textPrimary },
 
-  listContent: {
-    padding: SPACING.xl,
-    paddingTop: SPACING.md,
-  },
+  cardWrapper: { marginBottom: SPACING.md },
 
-  doctorCard: {
-    marginBottom: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
-    overflow: "hidden",
-    ...SHADOWS.card,
-  },
-  cardGradient: {
+  // CARD TRẮNG SẠCH, NHỎ GỌN, KHÔNG MỜ
+  card: {
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
-    padding: SPACING.xl,
-    minHeight: 110,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
+    ...SHADOWS.card,
   },
-  avatarWrapper: {
-    marginRight: SPACING.lg,
-  },
-  avatarImage: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-  },
-  avatarGradient: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+
+  avatarWrapper: { marginRight: SPACING.lg },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarLetter: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#FFFFFF",
-  },
+  avatarLetter: { fontSize: 24, fontWeight: "900", color: "#FFF" },
 
-  infoWrapper: { flex: 1 },
-  doctorName: {
-    fontSize: 18,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-  doctorDept: {
-    fontSize: 15,
-    color: COLORS.primary,
-    marginTop: 4,
-    fontWeight: FONT_WEIGHT.semibold,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  detailText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
+  content: { flex: 1 },
+  name: { fontSize: 17, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary },
+  specialist: { fontSize: 14, color: COLORS.primary, marginTop: 2, fontWeight: "600" },
+  deptRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  deptText: { marginLeft: 6, fontSize: 13.5, color: "#64748B" },
 
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  actions: { flexDirection: "row", gap: 12 },
   editBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.primary + "15",
     justifyContent: "center",
     alignItems: "center",
   },
   deleteBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.danger + "15",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  emptyState: {
-    alignItems: "center",
-    marginTop: 100,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-    marginTop: 20,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginTop: 8,
-  },
+  empty: { alignItems: "center", marginTop: 100 },
+  emptyText: { fontSize: 18, color: COLORS.textSecondary, marginTop: 16 },
 
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: COLORS.textSecondary,
-  },
+  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
+  loadingText: { marginTop: 12, fontSize: 16, color: COLORS.textSecondary },
 };

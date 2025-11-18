@@ -6,9 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StatusBar,
-  Dimensions,
-  Animated,
   Platform,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,32 +24,22 @@ const {
   SHADOWS,
 } = theme;
 
-const { width } = Dimensions.get("window");
-const isTablet = width >= 768;
-
 export default function AdminHomeScreen() {
   const navigation = useNavigation();
-  const [stats, setStats] = useState({
-    doctors: 0,
-    patients: 0,
-    users: 0,
-    appointments: 0,
-  });
+  const [stats, setStats] = useState({ doctors: 0, patients: 0, users: 0, appointments: 0 });
   const [loading, setLoading] = useState(true);
 
-  // Animation refs
+  // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const avatarScale = useRef(new Animated.Value(0.8)).current;
-  const menuScales = useRef(Array.from({ length: 12 }, () => new Animated.Value(0.8))).current;
+  const scaleAnims = useRef(Array.from({ length: 12 }, () => new Animated.Value(0.9))).current;
 
   const fetchStats = async () => {
-    setLoading(true);
     try {
       const [
-        { count: doctorCount },
-        { count: patientCount },
-        { count: userCount },
-        { count: appointmentCount },
+        { count: doctors },
+        { count: patients },
+        { count: users },
+        { count: appointments },
       ] = await Promise.all([
         supabase.from("doctors").select("*", { count: "exact", head: true }),
         supabase.from("patients").select("*", { count: "exact", head: true }),
@@ -58,57 +47,37 @@ export default function AdminHomeScreen() {
         supabase.from("appointments").select("*", { count: "exact", head: true }).neq("status", "cancelled"),
       ]);
 
-      setStats({
-        doctors: doctorCount || 0,
-        patients: patientCount || 0,
-        users: userCount || 0,
-        appointments: appointmentCount || 0,
-      });
-    } catch (error) {
-      console.error("Lỗi tải dữ liệu admin:", error);
+      setStats({ doctors: doctors || 0, patients: patients || 0, users: users || 0, appointments: appointments || 0 });
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
-      animateEntrance();
+      Animated.stagger(
+        80,
+        scaleAnims.map(anim =>
+          Animated.spring(anim, { toValue: 1, friction: 8, tension: 100, useNativeDriver: true })
+        )
+      ).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     }
   };
 
-  const animateEntrance = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.spring(avatarScale, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
-      ...menuScales.map((anim, i) =>
-        Animated.spring(anim, {
-          toValue: 1,
-          friction: 9,
-          tension: 50,
-          delay: i * 70,
-          useNativeDriver: true,
-        })
-      ),
-    ]).start();
-  };
+  useEffect(() => { fetchStats(); }, []);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  // FIX: DÙNG MẢNG GRADIENT TRỰC TIẾP TRONG FILE (tránh lỗi undefined)
   const menuItems = [
-    { title: "Quản lý bác sĩ",       icon: "medkit-outline",       screen: "Bác sĩ",         gradient: ["#3B82F6", "#1D4ED8"] },
-    { title: "Quản lý bệnh nhân",    icon: "heart-outline",        screen: "Bệnh nhân",      gradient: ["#EC4899", "#BE185D"] },
-    { title: "Quản lý người dùng",   icon: "people-outline",       screen: "Người dùng",     gradient: ["#8B5CF6", "#6D28D9"] },
-    { title: "Tạo tài khoản",        icon: "person-add-outline",   screen: "Tạo tài khoản",  gradient: ["#F59E0B", "#D97706"] },
-    { title: "Tạo bác sĩ",           icon: "briefcase-outline",    screen: "Tạo bác sĩ",     gradient: ["#10B981", "#059669"] },
-    { title: "Lịch làm việc",        icon: "calendar-outline",     screen: "Lịch làm việc",  gradient: ["#6366F1", "#4F46E5"] },
-    { title: "Báo cáo",              icon: "bar-chart-outline",    screen: "Báo cáo",        gradient: ["#F97316", "#EA580C"] },
-    { title: "Quản trị hệ thống",    icon: "settings-outline",     screen: "Quản trị",       gradient: ["#64748B", "#475569"] },
+    { title: "Quản lý bác sĩ",     icon: "medkit-outline",     screen: "Bác sĩ",       colors: ["#3B82F6", "#1D4ED8"] },
+    { title: "Quản lý bệnh nhân",  icon: "heart-outline",      screen: "Bệnh nhân",    colors: ["#EC4899", "#BE185D"] },
+    { title: "Tạo bác sĩ",         icon: "person-add-outline", screen: "Tạo bác sĩ",   colors: ["#10B981", "#059669"] },
+    { title: "Lịch khám hôm nay",  icon: "calendar-outline",   screen: "Lịch khám",    colors: ["#8B5CF6", "#6D28D9"] },
+    { title: "Báo cáo",            icon: "bar-chart-outline",  screen: "Báo cáo",      colors: ["#F97316", "#EA580C"] },
+    { title: "Cài đặt",            icon: "settings-outline",   screen: "Cài đặt",      colors: ["#64748B", "#475569"] },
   ];
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tải dữ liệu quản trị...</Text>
+        <Text style={styles.loadingText}>Đang tải...</Text>
       </View>
     );
   }
@@ -117,69 +86,54 @@ export default function AdminHomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
-      {/* HEADER */}
+      {/* HEADER NHỎ GỌN */}
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
-        <View style={styles.headerContent}>
+        <View style={styles.headerRow}>
           <View>
-            <Text style={styles.greeting}>Xin chào, Admin</Text>
-            <Text style={styles.subtitle}>Quản lý hệ thống y tế</Text>
+            <Text style={styles.greeting}>Xin chào, Admin!</Text>
+            <Text style={styles.subtitle}>Hôm nay bạn muốn làm gì?</Text>
           </View>
-          <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
-            <LinearGradient colors={["#60A5FA", COLORS.primary]} style={styles.avatar}>
-              <Text style={styles.avatarText}>A</Text>
-            </LinearGradient>
-          </Animated.View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>A</Text>
+          </View>
         </View>
       </LinearGradient>
 
       <Animated.ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         opacity={fadeAnim}
       >
-        {/* STATS GRID */}
-        <View style={styles.statsGrid}>
+        {/* THỐNG KÊ NHỎ GỌN */}
+        <View style={styles.statsRow}>
           {[
-            { label: "Bác sĩ",     value: stats.doctors,      icon: "medkit-outline",     color: COLORS.primary },
-            { label: "Bệnh nhân",  value: stats.patients,     icon: "heart-outline",      color: "#EC4899" },
-            { label: "Người dùng", value: stats.users,        icon: "people-outline",     color: "#8B5CF6" },
-            { label: "Lịch khám",  value: stats.appointments, icon: "calendar-outline",   color: "#10B981" },
+            { label: "Bác sĩ", value: stats.doctors, icon: "medkit-outline", color: "#3B82F6" },
+            { label: "Bệnh nhân", value: stats.patients, icon: "people-outline", color: "#EC4899" },
+            { label: "Lịch khám", value: stats.appointments, icon: "calendar-outline", color: "#10B981" },
           ].map((item, i) => (
-            <Animated.View
-              key={i}
-              style={[styles.statCardWrapper, { transform: [{ scale: menuScales[i] }] }]}
-            >
-              <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={styles.statCard}>
-                <View style={styles.statIconWrapper}>
-                  <Ionicons name={item.icon} size={36} color={item.color} />
-                </View>
-                <Text style={styles.statValue}>{item.value.toLocaleString()}</Text>
+            <Animated.View key={i} style={[styles.statBox, { transform: [{ scale: scaleAnims[i] }] }]}>
+              <View style={styles.statInner}>
+                <Ionicons name={item.icon} size={24} color={item.color} />
+                <Text style={styles.statValue}>{item.value}</Text>
                 <Text style={styles.statLabel}>{item.label}</Text>
-              </LinearGradient>
+              </View>
             </Animated.View>
           ))}
         </View>
 
-        {/* MENU GRID */}
-        <Text style={styles.sectionTitle}>Chức năng quản lý</Text>
-        <View style={styles.menuGrid}>
+        {/* MENU CHÍNH */}
+        <Text style={styles.sectionTitle}>Chức năng chính</Text>
+        <View style={styles.grid}>
           {menuItems.map((item, i) => (
             <TouchableOpacity
               key={i}
-              style={styles.menuItem}
+              style={styles.menuBtn}
               onPress={() => navigation.navigate(item.screen)}
-              activeOpacity={0.85}
+              activeOpacity={0.9}
             >
-              <Animated.View style={{ transform: [{ scale: menuScales[i + 4] }] }}>
-                <LinearGradient
-                  colors={item.gradient}           // Dùng mảng trực tiếp → không lỗi
-                  style={styles.menuGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.menuIconWrapper}>
-                    <Ionicons name={item.icon} size={38} color="#FFFFFF" />
-                  </View>
+              <Animated.View style={{ transform: [{ scale: scaleAnims[i + 3] }] }}>
+                <LinearGradient colors={item.colors} style={styles.menuGradient}>
+                  <Ionicons name={item.icon} size={32} color="#FFF" />
                   <Text style={styles.menuText}>{item.title}</Text>
                 </LinearGradient>
               </Animated.View>
@@ -191,35 +145,57 @@ export default function AdminHomeScreen() {
   );
 }
 
+// STYLE NHỎ GỌN – ĐẸP – HOÀN HẢO CHO ĐIỆN THOẠI
 const styles = {
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+
   header: {
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING.xl,
     borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
-  headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  greeting: { fontSize: 28, fontWeight: FONT_WEIGHT.black, color: "#FFFFFF" },
-  subtitle: { fontSize: 16, color: "rgba(255,255,255,0.9)", marginTop: 4 },
-  avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "#FFFFFF" },
-  avatarText: { fontSize: 36, fontWeight: "900", color: "#FFFFFF" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  greeting: { fontSize: 24, fontWeight: "bold", color: "#FFF" },
+  subtitle: { fontSize: 15, color: "rgba(255,255,255,0.9)", marginTop: 4 },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: { fontSize: 24, fontWeight: "900", color: "#FFF" },
 
-  scrollContent: { padding: SPACING.xl, paddingTop: SPACING.lg },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: SPACING.xxl },
-  statCardWrapper: { width: isTablet ? "48%" : "48%", marginBottom: SPACING.lg },
-  statCard: { borderRadius: BORDER_RADIUS.xl, padding: SPACING.xl, alignItems: "center", ...SHADOWS.card },
-  statIconWrapper: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.8)", justifyContent: "center", alignItems: "center", marginBottom: SPACING.md },
-  statValue: { fontSize: 32, fontWeight: FONT_WEIGHT.black, color: COLORS.textPrimary },
-  statLabel: { fontSize: 15, color: COLORS.textSecondary, marginTop: 4 },
+  content: { padding: SPACING.xl },
 
-  sectionTitle: { fontSize: 22, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.xl },
-  menuGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  menuItem: { width: isTablet ? "31%" : "48%", marginBottom: SPACING.xl },
-  menuGradient: { borderRadius: BORDER_RADIUS.xl, padding: SPACING.xl, alignItems: "center", height: 140, justifyContent: "center", ...SHADOWS.large },
-  menuIconWrapper: { width: 68, height: 68, borderRadius: 34, backgroundColor: "rgba(255,255,255,0.25)", justifyContent: "center", alignItems: "center", marginBottom: SPACING.md },
-  menuText: { fontSize: 15, fontWeight: FONT_WEIGHT.semibold, color: "#FFFFFF", textAlign: "center", lineHeight: 20 },
+  statsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: SPACING.xl },
+  statBox: { flex: 1, marginHorizontal: 6 },
+  statInner: {
+    backgroundColor: "#FFFFFF",
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.xl,
+    alignItems: "center",
+    ...SHADOWS.card,
+  },
+  statValue: { fontSize: 24, fontWeight: "bold", color: COLORS.textPrimary, marginTop: 8 },
+  statLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
 
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background },
+  sectionTitle: { fontSize: 19, fontWeight: "bold", color: COLORS.textPrimary, marginBottom: SPACING.lg },
+
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  menuBtn: { width: "48%", marginBottom: SPACING.lg },
+  menuGradient: {
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    height: 110,
+    justifyContent: "center",
+    alignItems: "center",
+    ...SHADOWS.large,
+  },
+  menuText: { marginTop: 12, fontSize: 14, fontWeight: "600", color: "#FFF", textAlign: "center" },
+
+  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
   loadingText: { marginTop: 16, fontSize: 16, color: COLORS.textSecondary },
 };
