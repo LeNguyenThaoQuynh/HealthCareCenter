@@ -1,5 +1,5 @@
-// src/screens/patient/Book_appointment/BookByDoctor/SelectDate.js
-import React from 'react';
+// screens/SelectDate.js
+import React from "react";
 import {
   View,
   Text,
@@ -8,190 +8,272 @@ import {
   ScrollView,
   Platform,
   Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+  Image,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { supabase } from "../../../../api/supabase";
 
 const Colors = {
-  primary: '#1D4ED8',
-  textPrimary: '#1E293B',
-  textSecondary: '#4B5563',
-  bg: '#F8FAFC',
-  available: '#1D4ED8',
-  today: '#DBEAFE',
-  disabled: '#F3F4F6',
-  white: '#FFFFFF',
+  primary: "#1D4ED8",
+  primaryLight: "#DBEAFE",
+  primarySoft: "#EEF2FF",
+  textPrimary: "#0F172A",
+  textSecondary: "#475569",
+  bg: "#F8FAFC",
+  card: "#FFFFFF",
+  availableBg: "#E0E7FF",
+  availableBorder: "#6366F1",
+  availableText: "#312E81",
+  todayBg: "#DBEAFE",
+  todayText: "#1D4ED8",
+  disabledText: "#94A3B8",
+};
+
+// MAP NGÀY TIẾNG VIỆT → INDEX (0 = Thứ 2, 6 = Chủ nhật)
+const DAY_MAP = {
+  "Thứ 2": 0, "Thu 2": 0, "T2": 0, "Thứ hai": 0,
+  "Thứ 3": 1, "Thu 3": 1, "T3": 1, "Thứ ba": 1,
+  "Thứ 4": 2, "Thu 4": 2, "T4": 2, "Thứ tư": 2,
+  "Thứ 5": 3, "Thu 5": 3, "T5": 3, "Thứ năm": 3,
+  "Thứ 6": 4, "Thu 6": 4, "T6": 4, "Thứ sáu": 4,
+  "Thứ 7": 5, "Thu 7": 5, "T7": 5, "Thứ bảy": 5,
+  "Chủ nhật": 6, "CN": 6,
+};
+
+const normalizeDay = (day) => {
+  if (!day) return null;
+  const cleaned = day.trim();
+  return DAY_MAP[cleaned] ?? null;
+};
+
+// HÀM FIX MÚI GIỜ VIỆT NAM (UTC+7) – QUAN TRỌNG NHẤT!
+const getVietnamToday = () => {
+  const now = new Date();
+  const offset = 7 * 60; // UTC+7 (phút)
+  const localTime = now.getTime();
+  const localOffset = now.getTimezoneOffset(); // phút của thiết bị
+  const vietnamTime = localTime + (offset + localOffset) * 60 * 1000;
+  const vietnamDate = new Date(vietnamTime);
+  vietnamDate.setHours(0, 0, 0, 0);
+  return vietnamDate;
 };
 
 export default function SelectDate() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { doctor } = route.params || {};
+  const { doctor, selectedDate: preselectedDate } = route.params || {};
+
+  const [schedule, setSchedule] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [currentMonth, setCurrentMonth] = React.useState(new Date());
+
+  // ĐÃ FIX MÚI GIỜ – HÔM NAY LUÔN ĐÚNG!
+  const today = getVietnamToday();
 
   React.useEffect(() => {
-    if (!doctor?.id || !doctor?.name) {
-      Alert.alert('Lỗi', 'Thiếu thông tin bác sĩ.');
+    if (!doctor?.id) {
+      Alert.alert("Lỗi", "Không tìm thấy thông tin bác sĩ.");
       navigation.goBack();
-    }
-  }, [doctor, navigation]);
-
-  // Today in local timezone (Vietnam +07), set to 00:00
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Display November 2025
-  const currentYear = 2025;
-  const currentMonth = 10; // 0-based: 10 = November
-
-  // Doctor available on Monday (dayOfWeek: 1)
-  const doctorSchedule = [{ dayOfWeek: 1 }]; // Changed to Monday to match 17/11/2025
-
-  // Generate list of available dates in 'YYYY-MM-DD' format
-  const generateAvailableDates = () => {
-    const dates = [];
-    const start = new Date(today);
-    start.setDate(start.getDate() + 1); // Start from tomorrow (14/11/2025)
-
-    for (let i = 0; i < 60; i++) {
-      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-      const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-
-      if (doctorSchedule.some(s => s.dayOfWeek === dayOfWeek)) {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        dates.push({
-          date: `${y}-${m}-${d}`,
-          dayOfWeek,
-        });
-      }
-    }
-    return dates;
-  };
-
-  const availableDates = React.useMemo(() => generateAvailableDates(), [doctorSchedule]);
-
-  const handleSelect = (dateStr) => {
-    const parts = dateStr.split('-').map(Number);
-    const selected = new Date(parts[0], parts[1] - 1, parts[2]);
-    selected.setHours(0, 0, 0, 0);
-
-    if (selected < today) {
-      Alert.alert('Không thể chọn', 'Ngày đã qua không thể đặt lịch.');
       return;
     }
-    navigation.navigate('SelectTimeSlotDoctor', {
+    loadSchedule();
+  }, [doctor?.id]);
+
+  const loadSchedule = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("doctor_schedule_template")
+        .select("day_of_week, start_time, end_time")
+        .eq("doctor_id", doctor.id);
+
+      if (error) throw error;
+      setSchedule(data || []);
+    } catch (err) {
+      console.error("Lỗi tải lịch:", err);
+      Alert.alert("Lỗi", "Không thể tải lịch bác sĩ.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Danh sách ngày có lịch trong 6 tháng tới
+  const availableDates = React.useMemo(() => {
+    if (!schedule.length) return [];
+
+    const dates = new Set();
+    const start = new Date();
+    const end = new Date();
+    end.setMonth(end.getMonth() + 6);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayOfWeek = d.getDay(); // 0=Chủ nhật, 1=Thứ 2...
+      const vnIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+      const hasShift = schedule.some(s => normalizeDay(s.day_of_week) === vnIndex);
+      if (hasShift) {
+        // Dùng getVietnamDate để đảm bảo đúng ngày VN
+        const vnDate = new Date(d.getTime() + 7 * 3600000);
+        dates.add(vnDate.toISOString().split("T")[0]);
+      }
+    }
+    return Array.from(dates);
+  }, [schedule]);
+
+  const handleSelect = (dateStr) => {
+    navigation.navigate("SelectTimeSlotDoctor", {
       doctor,
       selectedDate: dateStr,
     });
   };
 
-  const getFirstDayOfMonth = () => {
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    return firstDay.getDay(); // 0=Sun, 1=Mon, ...
+  const nextMonth = () => {
+    setCurrentMonth(prev => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() + 1);
+      const limit = new Date(today);
+      limit.setMonth(limit.getMonth() + 5);
+      return next > limit ? prev : next;
+    });
   };
 
-  const firstDayOffset = getFirstDayOfMonth();
+  const prevMonth = () => {
+    setCurrentMonth(prev => {
+      const p = new Date(prev);
+      p.setMonth(prev.getMonth() - 1);
+      const min = new Date(today.getFullYear(), today.getMonth(), 1);
+      return p < min ? prev : p;
+    });
+  };
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDayOffset = ((new Date(year, month, 1).getDay() + 6) % 7); // Thứ 2 là đầu tuần
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
   const renderDay = (index) => {
-    const dayInMonth = index - firstDayOffset + 1;
-    const daysInThisMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-    if (dayInMonth < 1 || dayInMonth > daysInThisMonth) {
-      return <View key={`empty-${index}`} style={styles.emptyDay} />;
+    const day = index - firstDayOffset + 1;
+    if (day < 1 || day > daysInMonth) {
+      return <View key={`empty-${index}`} style={styles.dayContainer} />;
     }
 
-    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayInMonth).padStart(2, '0')}`;
-    const dateObj = new Date(currentYear, currentMonth, dayInMonth);
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dateObj = new Date(dateStr);
     dateObj.setHours(0, 0, 0, 0);
 
+    const isToday = dateObj.getTime() === today.getTime();
     const isPast = dateObj < today;
-    const isAvailable = availableDates.some(d => d.date === dateStr);
-    const isToday = dateObj.toDateString() === today.toDateString();
-
-    if (isPast) {
-      return (
-        <View key={`past-${dateStr}`} style={[styles.day, styles.disabled]}>
-          <Text style={styles.disabledText}>{dayInMonth}</Text>
-        </View>
-      );
-    }
+    const isAvailable = availableDates.includes(dateStr);
+    const isSelected = preselectedDate === dateStr;
 
     return (
       <TouchableOpacity
-        key={`day-${dateStr}`} // Unique key for each day
-        style={StyleSheet.flatten([
-          styles.day,
-          isToday && styles.today,
-          isAvailable && styles.available,
-          !isAvailable && styles.disabled,
-        ])}
-        onPress={() => isAvailable && handleSelect(dateStr)}
-        disabled={!isAvailable}
-        activeOpacity={0.8}
+        key={dateStr}
+        disabled={!isAvailable || isPast}
+        onPress={() => handleSelect(dateStr)}
+        style={[
+          styles.dayContainer,
+          isAvailable && !isPast && styles.dayAvailable,
+          isToday && styles.dayToday,
+          isSelected && styles.daySelected,
+        ]}
       >
-        <Text
-          style={StyleSheet.flatten([
-            styles.dayText,
-            isToday && styles.todayText,
-            isAvailable && styles.availableText,
-            !isAvailable && styles.disabledText,
-          ])}
-        >
-          {dayInMonth}
+        <Text style={[
+          styles.dayText,
+          isAvailable && !isPast && styles.dayAvailableText,
+          isToday && styles.dayTodayText,
+          (!isAvailable || isPast) && styles.dayDisabledText,
+          isSelected && { color: "#FFFFFF" },
+        ]}>
+          {day}
         </Text>
-        {isToday && <Text style={styles.todayLabel}>Hôm nay</Text>}
+        {isToday && <Text style={styles.todayTag}>Hôm nay</Text>}
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+      {/* HEADER ĐẸP + ẢNH BÁC SĨ */}
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color={Colors.white} />
+          <Ionicons name="arrow-back" size={26} color="white" />
         </TouchableOpacity>
-        <Text style={styles.title}>Chọn ngày khám</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-          <Ionicons name="home" size={24} color={Colors.white} />
-        </TouchableOpacity>
-      </Animated.View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.calendar}>
-          <View style={styles.monthHeader}>
-            <Text style={styles.month}>Tháng 11 - 2025</Text>
-          </View>
-
-          <View style={styles.weekdays}>
-            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d) => (
-              <Text key={d} style={styles.weekday}>{d}</Text>
-            ))}
-          </View>
-
-          <View style={styles.daysGrid}>
-            {Array.from({ length: 42 }, (_, i) => renderDay(i))}
-          </View>
-        </View>
-
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { backgroundColor: Colors.available }]} />
-            <Text style={styles.legendText}>Có lịch trống</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { backgroundColor: Colors.disabled }]} />
-            <Text style={styles.legendText}>Không khả dụng</Text>
-          </View>
-        </View>
-
-        <View style={styles.note}>
-          <Ionicons name="information-circle" size={16} color={Colors.primary} />
-          <Text style={styles.noteText}>
-            Chỉ hiển thị các ngày bác sĩ có lịch và chưa qua.
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={styles.doctorName} numberOfLines={1}>
+            BS. {doctor?.name || "Bác sĩ"}
+          </Text>
+          <Text style={styles.doctorSpec}>
+            {Array.isArray(doctor?.specializations)
+              ? doctor.specializations.join(" • ")
+              : doctor?.department_name || "Chưa cập nhật"}
           </Text>
         </View>
+
+        {doctor?.avatar_url ? (
+          <Image source={{ uri: doctor.avatar_url }} style={styles.doctorAvatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarLetter}>
+              {doctor?.name?.[0]?.toUpperCase() || "B"}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <ScrollView style={{ flex: 1 }}>
+        {loading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Đang tải lịch bác sĩ...</Text>
+          </View>
+        ) : schedule.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="calendar-outline" size={72} color="#CBD5E0" />
+            <Text style={styles.emptyTitle}>Bác sĩ chưa có lịch khám</Text>
+            <Text style={styles.emptySubtitle}>Vui lòng quay lại sau</Text>
+          </View>
+        ) : (
+          <>
+            <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.calendarCard}>
+              <View style={styles.monthHeader}>
+                <TouchableOpacity onPress={prevMonth} disabled={isCurrentMonth}>
+                  <Ionicons
+                    name="chevron-back"
+                    size={26}
+                    color={isCurrentMonth ? Colors.disabledText : Colors.textPrimary}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.monthLabel}>Tháng {month + 1}, {year}</Text>
+                <TouchableOpacity onPress={nextMonth}>
+                  <Ionicons name="chevron-forward" size={26} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.weekdays}>
+                {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map(d => (
+                  <Text key={d} style={styles.weekday}>{d}</Text>
+                ))}
+              </View>
+
+              <View style={styles.daysGrid}>
+                {Array.from({ length: 42 }, (_, i) => renderDay(i))}
+              </View>
+            </Animated.View>
+
+            <View style={styles.noteBox}>
+              <Ionicons name="information-circle" size={20} color={Colors.primary} />
+              <Text style={styles.noteText}>
+                Chỉ hiển thị ngày bác sĩ có lịch khám theo mẫu. Chọn ngày để xem khung giờ.
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -200,101 +282,73 @@ export default function SelectDate() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.primary,
-    elevation: 2,
+    paddingTop: Platform.OS === "ios" ? 55 : 35,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
   },
-  title: { fontSize: 22, fontWeight: '800', color: Colors.white },
-  content: { flex: 1 },
-  calendar: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+  doctorName: { color: "white", fontSize: 18, fontWeight: "bold" },
+  doctorSpec: { color: "#DBEAFE", fontSize: 13, marginTop: 4 },
+  doctorAvatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: "white" },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarLetter: { color: "white", fontSize: 20, fontWeight: "bold" },
+
+  loading: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 100 },
+  loadingText: { marginTop: 16, fontSize: 16, color: Colors.textSecondary },
+
+  empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 120 },
+  emptyTitle: { fontSize: 19, fontWeight: "bold", color: Colors.textPrimary, marginTop: 20 },
+  emptySubtitle: { fontSize: 15, color: Colors.textSecondary, marginTop: 8 },
+
+  calendarCard: {
+    backgroundColor: Colors.card,
     margin: 16,
-    padding: 16,
-    elevation: 2,
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  monthHeader: { alignItems: 'center', marginBottom: 12 },
-  month: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  weekdays: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  weekday: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 13,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  emptyDay: {
-    width: `${100 / 7 - 1.5}%`,
+  monthHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  monthLabel: { fontSize: 19, fontWeight: "800", color: Colors.textPrimary },
+  weekdays: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  weekday: { width: `${100 / 7}%`, textAlign: "center", fontWeight: "600", color: Colors.textSecondary, fontSize: 13 },
+  daysGrid: { flexDirection: "row", flexWrap: "wrap" },
+  dayContainer: {
+    width: `${100 / 7}%`,
     aspectRatio: 1,
-  },
-  day: {
-    width: `${100 / 7 - 1.5}%`,
-    aspectRatio: 1,
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginVertical: 6,
+    borderRadius: 16,
   },
-  today: {
-    backgroundColor: Colors.today,
-    borderWidth: 1,
-    borderColor: Colors.primary,
+  dayText: { fontSize: 16, fontWeight: "600" },
+  dayAvailable: { backgroundColor: Colors.availableBg, borderWidth: 2, borderColor: Colors.availableBorder },
+  dayAvailableText: { color: Colors.availableText, fontWeight: "700" },
+  dayToday: { backgroundColor: Colors.todayBg, borderWidth: 2, borderColor: Colors.primary },
+  dayTodayText: { color: Colors.todayText, fontWeight: "800" },
+  daySelected: { backgroundColor: Colors.primary },
+  dayDisabledText: { color: Colors.disabledText },
+  todayTag: { fontSize: 9, marginTop: 4, color: Colors.primary, fontWeight: "bold" },
+  noteBox: {
+    marginHorizontal: 20,
+    marginVertical: 16,
+    flexDirection: "row",
+    backgroundColor: Colors.primarySoft,
+    padding: 16,
+    borderRadius: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: Colors.primary,
   },
-  available: {
-    backgroundColor: Colors.available,
-  },
-  disabled: {
-    backgroundColor: Colors.disabled,
-  },
-  dayText: { fontSize: 14, color: Colors.textPrimary },
-  todayText: { color: Colors.primary, fontWeight: '700' },
-  availableText: { color: Colors.white, fontWeight: '700' },
-  disabledText: { color: '#9CA3AF' },
-  todayLabel: { fontSize: 9, color: Colors.primary, marginTop: 2 },
-  legend: {
-    marginHorizontal: 16,
-    marginTop: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  legendBox: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  legendText: { fontSize: 13, color: Colors.textSecondary, marginLeft: 8 },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 20,
-    padding: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-  },
-  noteText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.primary,
-    lineHeight: 20,
-    marginLeft: 8,
-  },
+  noteText: { flex: 1, marginLeft: 12, fontSize: 14.5, color: Colors.textPrimary, lineHeight: 20 },
 });

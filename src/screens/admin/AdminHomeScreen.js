@@ -65,10 +65,10 @@ export default function AdminHomeScreen() {
   useEffect(() => { fetchStats(); }, []);
 
   const menuItems = [
-    { title: "Quản lý bác sĩ",     icon: "medkit-outline",     screen: "Bác sĩ",       colors: ["#3B82F6", "#1D4ED8"] },
+    { title: "Quản lý bác sĩ",     icon: "medkit-outline",     screen: "ManageDoctors",       colors: ["#3B82F6", "#1D4ED8"] },
     { title: "Quản lý bệnh nhân",  icon: "heart-outline",      screen: "Bệnh nhân",    colors: ["#EC4899", "#BE185D"] },
-    { title: "Tạo bác sĩ",         icon: "person-add-outline", screen: "Tạo bác sĩ",   colors: ["#10B981", "#059669"] },
-    { title: "Lịch khám hôm nay",  icon: "calendar-outline",   screen: "Lịch khám",    colors: ["#8B5CF6", "#6D28D9"] },
+    { title: "Tạo bác sĩ",         icon: "person-add-outline", screen: "CreateDoctorAccount",   colors: ["#10B981", "#059669"] },
+    { title: "CreateDoctorSchedule",  icon: "calendar-outline",   screen: "Lịch khám",    colors: ["#8B5CF6", "#6D28D9"] },
     { title: "Báo cáo",            icon: "bar-chart-outline",  screen: "Báo cáo",      colors: ["#F97316", "#EA580C"] },
     { title: "Cài đặt",            icon: "settings-outline",   screen: "Cài đặt",      colors: ["#64748B", "#475569"] },
   ];

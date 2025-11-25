@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/screens/admin/ManageDoctorsScreen.js
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,127 +10,135 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
-  Image,
   Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { getAllDoctorsService, deleteDoctorService } from "../../services/doctor/doctorService";
+import { supabase } from "../../api/supabase";
 import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import theme from "../../theme/theme";
 
-const {
-  COLORS,
-  GRADIENTS,
-  SPACING,
-  BORDER_RADIUS,
-  FONT_WEIGHT,
-  SHADOWS,
-} = theme;
+const { COLORS, GRADIENTS, SPACING, BORDER_RADIUS, SHADOWS } = theme;
 
 export default function ManageDoctorsScreen() {
   const navigation = useNavigation();
   const [doctors, setDoctors] = useState([]);
-  const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchDoctors = async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
+
     try {
-      const data = await getAllDoctorsService();
-      setDoctors(data || []);
-      setFilteredDoctors(data || []);
-    } catch (error) {
+      const { data, error } = await supabase
+        .from("doctors")
+        .select(`
+          id,
+          name,
+          room_number,
+          experience_years,
+          bio,
+          specialization,
+          department_name
+        `)
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+
+      const formatted = (data || []).map(doc => ({
+        id: doc.id,
+        full_name: doc.name?.trim() || "Bác sĩ",
+        room_number: doc.room_number || null,
+        experience_years: doc.experience_years,
+        bio: doc.bio || null,
+        department_name: doc.department_name || "Chưa phân khoa",
+        // Tách chuỗi specialization thành mảng để hiển thị đẹp
+        specializations: doc.specialization
+          ? doc.specialization
+              .split(",")
+              .map(s => s.trim())
+              .filter(s => s.length > 0)
+          : [],
+      }));
+
+      setDoctors(formatted);
+    } catch (err) {
+      console.error("Lỗi tải bác sĩ:", err);
       Alert.alert("Lỗi", "Không thể tải danh sách bác sĩ");
+      setDoctors([]);
     } finally {
       setLoading(false);
       if (isRefresh) setRefreshing(false);
     }
   };
 
-  useEffect(() => { fetchDoctors(); }, []);
+  // Tự động reload khi quay lại màn hình
+  useFocusEffect(
+    useCallback(() => {
+      fetchDoctors();
+    }, [])
+  );
 
-  useEffect(() => {
+  // Tìm kiếm siêu nhanh
+  const filteredDoctors = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      setFilteredDoctors(doctors);
-      return;
-    }
-    const filtered = doctors.filter(doc =>
-      (doc.user_profiles?.full_name?.toLowerCase() || "").includes(q) ||
-      (doc.departments?.name?.toLowerCase() || "").includes(q) ||
-      (doc.specialization?.toLowerCase() || "").includes(q)
-    );
-    setFilteredDoctors(filtered);
-  }, [searchQuery, doctors]);
+    if (!q) return doctors;
 
-  const handleDelete = (id, name) => {
-    Alert.alert("Xóa bác sĩ", `Xóa bác sĩ "${name}"?`, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa", style: "destructive",
-        onPress: async () => {
-          setLoading(true);
-          const res = await deleteDoctorService(id);
-          Alert.alert(res.success ? "Thành công" : "Lỗi", res.message, [
-            { text: "OK", onPress: fetchDoctors }
-          ]);
-          setLoading(false);
-        }
-      },
-    ]);
-  };
+    return doctors.filter(doc => {
+      const name = doc.full_name.toLowerCase();
+      const specs = doc.specializations.join(" ").toLowerCase();
+      const room = doc.room_number ? String(doc.room_number) : "";
+      const dept = doc.department_name.toLowerCase();
+      return name.includes(q) || specs.includes(q) || room.includes(q) || dept.includes(q);
+    });
+  }, [doctors, searchQuery]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchDoctors(true);
+  }, []);
 
   const renderDoctorItem = ({ item }) => {
-    const name = item.user_profiles?.full_name || "Bác sĩ";
-    const dept = item.departments?.name || "Chưa xác định";
-    const avatarLetter = name.charAt(0).toUpperCase();
+    const avatarLetter = item.full_name.charAt(0).toUpperCase();
+    const specsText =
+      item.specializations.length > 0
+        ? item.specializations.join(" • ")
+        : "Chưa có chuyên môn";
+    const roomText = item.room_number ? `Phòng ${item.room_number}` : "Chưa phân phòng";
 
     return (
       <TouchableOpacity
+        activeOpacity={0.8}
         style={styles.cardWrapper}
-        activeOpacity={0.9}
-        onPress={() => navigation.navigate("Chi tiết bác sĩ", { doctorId: item.id })}
+        onPress={() => navigation.navigate("DoctorDetail", { doctorId: item.id })}
       >
-        {/* CARD ĐẸP – NHỎ GỌN – MÀU TRẮNG SẠCH */}
         <View style={styles.card}>
-          {/* Avatar nhỏ gọn */}
           <View style={styles.avatarWrapper}>
-            {item.user_profiles?.avatar_url ? (
-              <Image source={{ uri: item.user_profiles.avatar_url }} style={styles.avatar} />
-            ) : (
-              <LinearGradient colors={GRADIENTS.primaryButton} style={styles.avatar}>
-                <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-              </LinearGradient>
-            )}
+            <LinearGradient colors={GRADIENTS.primaryButton} style={styles.avatar}>
+              <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+            </LinearGradient>
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.name}>{name}</Text>
-            <Text style={styles.specialist}>{item.specialization || "Bác sĩ đa khoa"}</Text>
-            <View style={styles.deptRow}>
-              <Ionicons name="business-outline" size={13} color={COLORS.primary} />
-              <Text style={styles.deptText}>{dept}</Text>
-            </View>
+            <Text style={styles.name}>{item.full_name}</Text>
+            <Text style={styles.specialist} numberOfLines={2}>{specsText}</Text>
+            <Text style={styles.roomInfo}>{roomText}</Text>
+            {item.department_name && item.department_name !== "Chưa phân khoa" && (
+              <Text style={styles.department}>Khoa: {item.department_name}</Text>
+            )}
           </View>
 
-          {/* Nút hành động nhỏ gọn, đẹp */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={(e) => { e.stopPropagation(); navigation.navigate("Sửa bác sĩ", { doctorId: item.id }); }}
-            >
-              <Ionicons name="pencil" size={18} color={COLORS.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={(e) => { e.stopPropagation(); handleDelete(item.id, name); }}
-            >
-              <Ionicons name="trash" size={18} color={COLORS.danger} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate("EditDoctor", { doctorId: item.id });
+            }}
+          >
+            <Ionicons name="pencil" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -137,9 +146,9 @@ export default function ManageDoctorsScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loading}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tải...</Text>
+        <Text style={styles.loadingText}>Đang tải danh sách bác sĩ...</Text>
       </View>
     );
   }
@@ -148,7 +157,6 @@ export default function ManageDoctorsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* HEADER NHỎ GỌN */}
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={26} color="#FFF" />
@@ -159,15 +167,16 @@ export default function ManageDoctorsScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* SEARCH BAR NHỎ GỌN */}
       <View style={styles.searchBar}>
         <Ionicons name="search" size={20} color="#94A3B8" />
         <TextInput
-          placeholder="Tìm bác sĩ..."
+          placeholder="Tìm tên, chuyên môn, phòng, khoa..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
           placeholderTextColor="#94A3B8"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
         />
         {searchQuery ? (
           <TouchableOpacity onPress={() => setSearchQuery("")}>
@@ -178,26 +187,42 @@ export default function ManageDoctorsScreen() {
 
       <FlatList
         data={filteredDoctors}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id}
         renderItem={renderDoctorItem}
-        contentContainerStyle={{ padding: SPACING.xl, paddingTop: SPACING.md }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDoctors(true); }} />}
+        contentContainerStyle={{ padding: SPACING.xl, paddingTop: SPACING.md, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="medkit-outline" size={70} color="#CBD5E1" />
+            <Ionicons name="medkit-outline" size={80} color="#CBD5E1" />
             <Text style={styles.emptyText}>Chưa có bác sĩ nào</Text>
+            <Text style={styles.emptySub}>Nhấn nút (+) để thêm bác sĩ mới</Text>
           </View>
         }
       />
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate("CreateDoctorAccount")}
+        activeOpacity={0.9}
+      >
+        <LinearGradient colors={GRADIENTS.primaryButton} style={styles.fabGradient}>
+          <Ionicons name="add" size={32} color="#FFF" />
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
 
-// STYLE NHỎ GỌN – SẠCH – ĐẸP – KHÔNG MỜ NỮA!
 const styles = {
   container: { flex: 1, backgroundColor: "#F8FAFC" },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -207,26 +232,22 @@ const styles = {
     paddingBottom: SPACING.lg,
     borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
-  backBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 22 },
-  homeBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 22 },
-  headerTitle: { fontSize: 22, fontWeight: FONT_WEIGHT.bold, color: "#FFF" },
-
+  backBtn: { padding: 10, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 25 },
+  homeBtn: { padding: 10, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 25 },
+  headerTitle: { fontSize: 23, fontWeight: "bold", color: "#FFF" },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     marginHorizontal: SPACING.xl,
     marginTop: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.xl,
-    height: 50,
+    height: 52,
     ...SHADOWS.card,
   },
   searchInput: { flex: 1, marginLeft: 12, fontSize: 16, color: COLORS.textPrimary },
-
   cardWrapper: { marginBottom: SPACING.md },
-
-  // CARD TRẮNG SẠCH, NHỎ GỌN, KHÔNG MỜ
   card: {
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
@@ -235,44 +256,36 @@ const styles = {
     borderRadius: BORDER_RADIUS.xl,
     ...SHADOWS.card,
   },
-
   avatarWrapper: { marginRight: SPACING.lg },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarLetter: { fontSize: 24, fontWeight: "900", color: "#FFF" },
-
+  avatar: { width: 64, height: 64, borderRadius: 32, justifyContent: "center", alignItems: "center" },
+  avatarLetter: { fontSize: 26, fontWeight: "900", color: "#FFF" },
   content: { flex: 1 },
-  name: { fontSize: 17, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary },
-  specialist: { fontSize: 14, color: COLORS.primary, marginTop: 2, fontWeight: "600" },
-  deptRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  deptText: { marginLeft: 6, fontSize: 13.5, color: "#64748B" },
-
-  actions: { flexDirection: "row", gap: 12 },
+  name: { fontSize: 18, fontWeight: "700", color: COLORS.textPrimary },
+  specialist: { fontSize: 14, color: "#555", marginTop: 6 },
+  roomInfo: { fontSize: 13.5, color: COLORS.success, marginTop: 6, fontWeight: "500" },
+  department: { fontSize: 13, color: COLORS.primary, marginTop: 4, fontStyle: "italic" },
   editBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.primary + "15",
     justifyContent: "center",
     alignItems: "center",
   },
-  deleteBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.danger + "15",
-    justifyContent: "center",
-    alignItems: "center",
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    ...SHADOWS.large,
+    elevation: 12,
   },
-
-  empty: { alignItems: "center", marginTop: 100 },
-  emptyText: { fontSize: 18, color: COLORS.textSecondary, marginTop: 16 },
-
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
-  loadingText: { marginTop: 12, fontSize: 16, color: COLORS.textSecondary },
+  fabGradient: { flex: 1, borderRadius: 32, justifyContent: "center", alignItems: "center" },
+  empty: { alignItems: "center", marginTop: 100, paddingHorizontal: 40 },
+  emptyText: { fontSize: 20, fontWeight: "600", color: COLORS.textSecondary, marginTop: 20 },
+  emptySub: { fontSize: 15, color: "#94A3B8", marginTop: 8, textAlign: "center" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
+  loadingText: { marginTop: 16, fontSize: 16, color: COLORS.textSecondary },
 };

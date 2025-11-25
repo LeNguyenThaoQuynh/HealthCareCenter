@@ -36,7 +36,7 @@ export default function AdminNavigator() {
             'Tạo tài khoản': 'person-add',
             'Tạo bác sĩ': 'briefcase',
             'Báo cáo': 'bar-chart',
-            'Lịch làm việc': 'calendar',
+            'CreateDoctorSchedule': 'calendar',
           };
           return <Ionicons name={icons[route.name] || 'ellipse'} size={size} color={color} />;
         },
@@ -50,7 +50,7 @@ export default function AdminNavigator() {
       <Drawer.Screen name="Tạo tài khoản" component={CreateUserScreen} />
       <Drawer.Screen name="Tạo bác sĩ" component={CreateDoctorAccountScreen} />
       <Drawer.Screen name="Báo cáo" component={ReportsScreen} />
-      <Drawer.Screen name="Lịch làm việc" component={CreateDoctorScheduleScreen} />
+      <Drawer.Screen name="CreateDoctorSchedule" component={CreateDoctorScheduleScreen} />
     </Drawer.Navigator>
   );
 }

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// src/screens/admin/CreateDoctorScheduleScreen.js
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -16,15 +17,7 @@ import { supabase } from "../../api/supabase";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import theme from "../../theme/theme";
 
-const {
-  COLORS,
-  GRADIENTS,
-  SPACING,
-  BORDER_RADIUS,
-  FONT_WEIGHT,
-  SHADOWS,
-} = theme;
-
+const { COLORS, GRADIENTS, SPACING, BORDER_RADIUS, SHADOWS } = theme;
 const WEEKDAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 
 export default function CreateDoctorScheduleScreen() {
@@ -39,6 +32,7 @@ export default function CreateDoctorScheduleScreen() {
     const digits = text.replace(/[^0-9]/g, "");
     if (!digits) return "";
     if (digits.length <= 2) return digits;
+    if (digits.length === 3) return `${digits.slice(0, 2)}:${digits[2]}`;
     return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`.slice(0, 5);
   };
 
@@ -63,21 +57,24 @@ export default function CreateDoctorScheduleScreen() {
 
     if (slots.length > 0) {
       const last = slots[slots.length - 1];
-      let [h] = last.end.split(":").map(Number);
-      h += h >= 12 ? 1 : 1;
-      if (h === 12) h = 13;
-      start = `${String(h).padStart(2, "0")}:00`;
-      end = `${String(h + 1).padStart(2, "0")}:00`;
+      const lastEnd = toMinutes(last.end);
+      const nextStart = lastEnd + 60;
+      if (nextStart < 24 * 60) {
+        const h = Math.floor(nextStart / 60);
+        const m = nextStart % 60;
+        start = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        end = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
     }
 
-    setSchedules((prev) => ({
+    setSchedules(prev => ({
       ...prev,
-      [day]: [...(prev[day] || []), { start, end }],
+      [day]: [...(prev[day] || []), { start, end }]
     }));
   };
 
   const removeSlot = (day, idx) => {
-    setSchedules((prev) => {
+    setSchedules(prev => {
       const updated = prev[day].filter((_, i) => i !== idx);
       if (updated.length === 0) {
         const { [day]: _, ...rest } = prev;
@@ -89,7 +86,7 @@ export default function CreateDoctorScheduleScreen() {
 
   const updateTime = (day, idx, field, value) => {
     const formatted = formatTime(value);
-    setSchedules((prev) => {
+    setSchedules(prev => {
       const updated = [...(prev[day] || [])];
       updated[idx] = { ...updated[idx], [field]: formatted };
       return { ...prev, [day]: updated };
@@ -99,116 +96,144 @@ export default function CreateDoctorScheduleScreen() {
   const handleCreate = async () => {
     const allSlots = Object.values(schedules).flat();
     if (allSlots.length === 0) {
-      Alert.alert("Thiếu lịch", "Vui lòng thêm ít nhất 1 khung giờ làm việc");
-      return;
+      return Alert.alert("Thiếu lịch", "Vui lòng thêm ít nhất 1 khung giờ làm việc");
     }
 
     for (const [day, slots] of Object.entries(schedules)) {
       if (hasOverlap(slots)) {
-        Alert.alert("Trùng giờ", `${day}: Có khung giờ bị chồng chéo`);
-        return;
+        return Alert.alert("Lỗi", `${day}: Có khung giờ bị chồng chéo`);
       }
       for (const slot of slots) {
         if (!isValidTime(slot.start) || !isValidTime(slot.end)) {
-          Alert.alert("Sai định dạng", `${day}: Giờ phải có dạng HH:MM (ví dụ: 08:00)`);
-          return;
+          return Alert.alert("Sai định dạng", `${day}: Giờ phải có dạng HH:MM (ví dụ: 08:00)`);
         }
         if (toMinutes(slot.start) >= toMinutes(slot.end)) {
-          Alert.alert("Lỗi giờ", `${day}: Giờ kết thúc phải sau giờ bắt đầu`);
-          return;
+          return Alert.alert("Lỗi giờ", `${day}: Giờ kết thúc phải sau giờ bắt đầu`);
         }
       }
     }
 
     setLoading(true);
+    Alert.alert("Đang tạo bác sĩ", "Vui lòng chờ một chút...", [], { cancelable: false });
+
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // 1. Tạo user bằng Admin API (để tránh xác minh email)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: doctorInfo.email,
         password: doctorInfo.password,
+        email_confirm: true, // tự động confirm email
+        user_metadata: { full_name: doctorInfo.fullName }
       });
 
-      if (authError) {
-        if (authError.message.includes("already registered")) {
-          Alert.alert("Email đã tồn tại", "Vui lòng dùng email khác");
-        } else throw authError;
-        return;
-      }
+      if (authError) throw authError;
+      if (!authData?.user) throw new Error("Không tạo được user");
 
-      const userId = authData.user?.id;
-      if (!userId) throw new Error("Không lấy được ID người dùng");
+      const userId = authData.user.id;
 
+      // 2. Insert user_profiles
       const { error: profileError } = await supabase
         .from("user_profiles")
-        .insert({
+        .upsert({
           id: userId,
-          role_id: 2,
           full_name: doctorInfo.fullName,
           email: doctorInfo.email,
         });
 
       if (profileError) throw profileError;
 
-      // 3. Tạo bác sĩ
-      const { error: doctorError } = await supabase.from("doctors").insert({
-        id: userId,
-        name: doctorInfo.fullName,
-        department_id: doctorInfo.departmentId,
-        specialization: doctorInfo.specialization || null,
-        experience_years: doctorInfo.experienceYears || null,
-        room_number: doctorInfo.roomNumber || null,
-        max_patients_per_slot: doctorInfo.maxPatients,
-        bio: doctorInfo.bio || null,
-      });
+      // 3. Insert vào bảng doctors
+      const { error: doctorError } = await supabase
+        .from("doctors")
+        .insert({
+          id: userId,
+          name: doctorInfo.fullName,
+          service_id: doctorInfo.service_id || null,
+          specialization: doctorInfo.specialization, // chuỗi "Tim mạch, Răng hàm mặt"
+          experience_years: doctorInfo.experience_years,
+          room_number: doctorInfo.room_number,
+          max_patients_per_slot: doctorInfo.max_patients_per_slot,
+          bio: doctorInfo.bio,
+          department_name: doctorInfo.department_name,
+        });
 
-      if (doctorError) throw doctorError;
+      if (doctorError) {
+        if (doctorError.code === "23505") throw new Error("Bác sĩ đã tồn tại");
+        throw doctorError;
+      }
 
-      const scheduleData = Object.entries(schedules).flatMap(([day, slots]) =>
-        slots.map((s) => ({
+      // 4. Gán phòng khám
+      const { error: roomError } = await supabase
+        .from("clinic_rooms")
+        .update({ doctor_id: userId })
+        .eq("room_number", doctorInfo.room_number);
+
+      if (roomError) console.warn("Cảnh báo gán phòng:", roomError);
+
+      // 5. Tạo lịch làm việc
+      const scheduleInserts = Object.entries(schedules).flatMap(([day, slots]) =>
+        slots.map(slot => ({
           doctor_id: userId,
           day_of_week: day,
-          start_time: `${s.start}:00`,
-          end_time: `${s.end}:00`,
-          max_patients_per_slot: doctorInfo.maxPatients,
+          start_time: `${slot.start}:00`,
+          end_time: `${slot.end}:00`,
+          max_patients_per_slot: doctorInfo.max_patients_per_slot || 10,
         }))
       );
 
-      const { error: scheduleError } = await supabase
-        .from("doctor_schedule_template")
-        .insert(scheduleData);
+      if (scheduleInserts.length > 0) {
+        const { error: scheduleError } = await supabase
+          .from("doctor_schedule_template")
+          .insert(scheduleInserts);
 
-      if (scheduleError) throw scheduleError;
+        if (scheduleError) throw scheduleError;
+      }
 
-      Alert.alert("Thành công!", `Đã tạo bác sĩ: ${doctorInfo.fullName}`, [
-        { text: "OK", onPress: () => navigation.navigate("Bác sĩ") },
-      ]);
+      // THÀNH CÔNG
+      Alert.alert(
+        "HOÀN TẤT!",
+        `Đã tạo thành công bác sĩ:\n${doctorInfo.fullName}\nPhòng: ${doctorInfo.room_number}`,
+        [{
+          text: "OK",
+          onPress: () => navigation.reset({
+            index: 0,
+            routes: [{ name: "ManageDoctors" }],
+          })
+        }]
+      );
+
     } catch (err) {
-      console.error(err);
-      Alert.alert("Lỗi", err.message || "Tạo bác sĩ thất bại");
+      console.error("Lỗi tạo bác sĩ:", err);
+      let message = "Không thể tạo bác sĩ. Vui lòng thử lại!";
+      if (err.message?.includes("duplicate") || err.message?.includes("already")) {
+        message = "Email hoặc phòng khám đã được sử dụng!";
+      }
+      Alert.alert("Lỗi", message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+    <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+      <StatusBar barStyle="light-content" />
 
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
         <View style={{ alignItems: "center" }}>
-          <Text style={styles.title}>Lịch làm việc</Text>
-          <Text style={styles.subtitle}>Bước 2/2 • Thiết lập khung giờ</Text>
+          <Text style={styles.title}>Thiết lập lịch làm việc</Text>
+          <Text style={styles.subtitle}>Bước 2/2 • {doctorInfo.fullName}</Text>
         </View>
         <View style={{ width: 50 }} />
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.doctorCard}>
-          <Text style={styles.doctorLabel}>Bác sĩ</Text>
           <Text style={styles.doctorName}>{doctorInfo.fullName}</Text>
           <Text style={styles.doctorEmail}>{doctorInfo.email}</Text>
+          <Text style={styles.doctorRoom}>Phòng: {doctorInfo.room_number}</Text>
+          <Text style={styles.doctorDept}>Khoa: {doctorInfo.department_name}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Khung giờ làm việc</Text>
@@ -223,7 +248,7 @@ export default function CreateDoctorScheduleScreen() {
               </TouchableOpacity>
             </View>
 
-            {schedules[day]?.length > 0 ? (
+            {(schedules[day] || []).length > 0 ? (
               schedules[day].map((slot, i) => (
                 <View key={i} style={styles.slotRow}>
                   <TextInput
@@ -253,6 +278,7 @@ export default function CreateDoctorScheduleScreen() {
             )}
           </View>
         ))}
+
         <TouchableOpacity
           style={[styles.createBtn, loading && { opacity: 0.7 }]}
           onPress={handleCreate}
@@ -260,11 +286,11 @@ export default function CreateDoctorScheduleScreen() {
         >
           <LinearGradient colors={GRADIENTS.primaryButton} style={styles.createBtnGradient}>
             {loading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-done" size={24} color="#FFF" />
-                <Text style={styles.createBtnText}>Hoàn tất tạo bác sĩ</Text>
+                <Ionicons name="checkmark-done" size={28} color="#FFF" />
+                <Text style={styles.createBtnText}>HOÀN TẤT TẠO BÁC SĨ</Text>
               </>
             )}
           </LinearGradient>
@@ -273,9 +299,8 @@ export default function CreateDoctorScheduleScreen() {
     </View>
   );
 }
-const styles = {
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
 
+const styles = {
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -293,34 +318,30 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
   },
-  title: { fontSize: 22, fontWeight: FONT_WEIGHT.bold, color: "#FFF" },
-  subtitle: { fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 4 },
-
-  content: { padding: SPACING.xl },
-
+  title: { fontSize: 22, fontWeight: "bold", color: "#FFF" },
+  subtitle: { fontSize: 15, color: "#E0F2FE", marginTop: 4 },
+  content: { padding: SPACING.xl, paddingBottom: 100 },
   doctorCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     padding: SPACING.xl,
     borderRadius: BORDER_RADIUS.xl,
     marginBottom: SPACING.xl,
     ...SHADOWS.card,
   },
-  doctorLabel: { fontSize: 14, color: COLORS.textSecondary },
-  doctorName: { fontSize: 20, fontWeight: "bold", color: COLORS.textPrimary, marginTop: 4 },
-  doctorEmail: { fontSize: 15, color: COLORS.primary, marginTop: 4 },
-
-  sectionTitle: { fontSize: 18, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.lg },
-
+  doctorName: { fontSize: 20, fontWeight: "bold", color: COLORS.textPrimary },
+  doctorEmail: { fontSize: 15, color: COLORS.textSecondary, marginTop: 4 },
+  doctorRoom: { fontSize: 15, color: COLORS.success, marginTop: 4, fontWeight: "600" },
+  doctorDept: { fontSize: 15, color: COLORS.primary, marginTop: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", color: COLORS.textPrimary, marginBottom: SPACING.lg },
   dayBlock: { marginBottom: SPACING.xl },
   dayHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: SPACING.md },
   dayText: { fontSize: 17, fontWeight: "600", color: COLORS.textPrimary },
   addBtn: { flexDirection: "row", alignItems: "center" },
   addBtnText: { marginLeft: 6, fontSize: 15, color: COLORS.primary, fontWeight: "600" },
-
   slotRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.xl,
     marginTop: SPACING.sm,
@@ -337,10 +358,8 @@ const styles = {
     color: COLORS.textPrimary,
   },
   deleteBtn: { marginLeft: "auto", padding: 8 },
-
   emptyDay: { fontSize: 15, color: COLORS.textSecondary, fontStyle: "italic", textAlign: "center", marginTop: 12 },
-
   createBtn: { marginTop: SPACING.xxl, borderRadius: BORDER_RADIUS.xl, overflow: "hidden", ...SHADOWS.large },
-  createBtnGradient: { flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 16 },
-  createBtnText: { fontSize: 17, fontWeight: "700", color: "#FFF", marginLeft: 10 },
+  createBtnGradient: { flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 18 },
+  createBtnText: { fontSize: 18, fontWeight: "700", color: "#FFF", marginLeft: 12 },
 };

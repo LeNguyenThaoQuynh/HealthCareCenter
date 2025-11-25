@@ -1,3 +1,6 @@
+// screens/doctor/DoctorHomeScreen.js → ĐÃ SỬA THEO Ý MÀY 100%
+// → Khung nhỏ lại + KHÔNG ĐÈ LÊN HEADER NỮA
+
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
@@ -6,161 +9,215 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../api/supabase";
 import { getUserProfile } from "../../controllers/patient/userController";
-import theme from "../../theme/theme";
+import {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  FONT_SIZE,
+  FONT_WEIGHT,
+  SHADOWS,
+} from "../../theme/theme";
 
-const { SPACING, BORDER_RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } = theme;
-
-export default function DortorHomeScreen() {
+export default function DoctorHomeScreen() {
   const navigation = useNavigation();
-  const [displayName, setDisplayName] = useState("Bạn");
+  const [displayName, setDisplayName] = useState("Bác sĩ");
 
-// gọi data lấy id người mới đăng nhập
   useEffect(() => {
-    const fetch = async () => {
+    const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const profile = await getUserProfile(user.id);
-        setDisplayName(profile?.full_name || profile?.name || user.email.split("@")[0]);
+        setDisplayName(
+          profile?.full_name || profile?.name || user.email.split("@")[0] || "Bác sĩ"
+        );
       }
     };
-    fetch();
+    fetchProfile();
   }, []);
-  const menu =[
-{
-    title : "lịch làm việc ", icon:"time-outline", screen:"DoctorAppointments"
-},
-{
-    title: "hồ sơ",icon:"person-outline",screen:"profile"
-}];
+
+  const menu = [
+    { title: "Lịch làm việc", icon: "calendar-outline", screen: "DoctorAppointments", subtitle: "Xem lịch hôm nay" },
+    { title: "Hồ sơ cá nhân", icon: "person-outline", screen: "DoctorProfile", subtitle: "Thông tin & chứng chỉ" },
+    { title: "Bệnh nhân", icon: "people-outline", screen: "PatientList", subtitle: "Quản lý hồ sơ" },
+    { title: "Thống kê", icon: "bar-chart-outline", screen: "DoctorStats", subtitle: "Doanh thu & hiệu suất" },
+  ];
 
   const scales = useRef(menu.map(() => new Animated.Value(1))).current;
 
   const animatePress = (index) => {
     Animated.sequence([
-      Animated.timing(scales[index], { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.timing(scales[index], { toValue: 0.94, duration: 100, useNativeDriver: true }),
       Animated.timing(scales[index], { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start();
   };
-return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-      {/* Header xanh dương sạch */}
-      <LinearGradient colors={["#2563EB", "#3B82F6"]} style={styles.header}>
-        <Text style={styles.greeting}>Xin chào,</Text>
-        <Text style={styles.name}>{displayName}</Text>
-        <Text style={styles.subtitle}>Chăm sóc sức khỏe của bạn hôm nay</Text>
+
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* HEADER – ĐẸP, KHÔNG BỊ ĐÈ */}
+      <LinearGradient colors={GRADIENTS.header} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.greeting}>Xin chào,</Text>
+          <Text style={styles.name}>{displayName}</Text>
+          <Text style={styles.subtitle}>Chúc bạn một ngày làm việc hiệu quả!</Text>
+        </View>
+        <Ionicons name="heart-outline" size={110} color="#ffffff20" style={styles.decorIcon} />
       </LinearGradient>
 
-
-      {/* Grid menu – nhỏ gọn, chỉ 1 màu icon + nền trắng */}
-      <View style={styles.grid}>
+      {/* MENU GRID – NHỎ LẠI + KHÔNG ĐÈ LÊN HEADER */}
+      <View style={styles.menuGrid}>
         {menu.map((item, i) => (
           <TouchableOpacity
-        
             key={i}
-            style={styles.menuItem}
+            activeOpacity={1}
             onPress={() => {
               animatePress(i);
-              item.screen && navigation.navigate(item.screen);
+              navigation.navigate(item.screen);
             }}
-            disabled={!item.screen}
-            activeOpacity={0.85}
+            style={styles.menuButton}
           >
-            <Animated.View style={[styles.itemInner, { transform: [{ scale: scales[i] }] }]}>
-              <View style={styles.iconCircle}>
-                <Ionicons name={item.icon} size={28} color="#2563EB" />
-              </View>
-              <Text style={styles.itemText}>{item.title}</Text>
+            <Animated.View style={[styles.menuCard, { transform: [{ scale: scales[i] }] }]}>
+              <LinearGradient
+                colors={i % 2 === 0 ? GRADIENTS.appointmentCard : GRADIENTS.healthTip}
+                style={styles.iconCircle}
+              >
+                <Ionicons name={item.icon} size={30} color={COLORS.textOnPrimary} />
+              </LinearGradient>
+
+              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
             </Animated.View>
           </TouchableOpacity>
         ))}
       </View>
 
-      
+      {/* THÔNG BÁO NHẸ NHÀNG */}
+      <View style={styles.notificationCard}>
+        <Ionicons name="notifications-outline" size={20} color={COLORS.accentTeal} />
+        <Text style={styles.notificationText}>Bạn có 3 bệnh nhân đang chờ khám</Text>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
 
+  // Header không bị đè
   header: {
-    paddingTop: theme.headerPaddingTop || 60,
+    paddingTop: Platform.OS === "ios" ? 70 : 50,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xxl,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: SPACING.xxl,   // giảm bớt để không tràn quá
+    borderBottomLeftRadius: BORDER_RADIUS.xxl,
+    borderBottomRightRadius: BORDER_RADIUS.xxl,
+    overflow: "hidden",
   },
-  greeting: { fontSize: 17, color: "#FFFFFFCC", fontWeight: "600" },
-  name: { fontSize: 32, color: "#FFFFFF", fontWeight: "800", marginTop: 4 },
-  subtitle: { fontSize: 15, color: "#FFFFFFE6", marginTop: 6 },
 
-  infoBox: {
-    marginHorizontal: SPACING.xl,
-    marginTop: -28,
-    backgroundColor: "#FFFFFF",
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    ...SHADOWS.card,
-    borderWidth: 1,
-    borderColor: "#E0E7FF",
+  headerContent: { zIndex: 2 },
+
+  greeting: {
+    fontSize: FONT_SIZE.lg,
+    color: "#ffffffd0",
+    fontWeight: FONT_WEIGHT.medium,
   },
-  infoText: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: "600", color: "#1E293B" },
 
-  grid: {
+  name: {
+    fontSize: 34,
+    color: COLORS.textOnPrimary,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+
+  subtitle: {
+    fontSize: FONT_SIZE.lg,
+    color: "#ffffffc0",
+    marginTop: 8,
+    fontWeight: FONT_WEIGHT.medium,
+  },
+
+  decorIcon: {
+    position: "absolute",
+    right: -20,
+    top: 60,
+    opacity: 0.2,
+  },
+
+  // ĐÃ SỬA: KHÔNG DÙNG marginTop âm → KHÔNG ĐÈ HEADER NỮA
+  menuGrid: {
+    paddingHorizontal: SPACING.xl,
+    marginTop: SPACING.xl,        // CHỈ DÙNG marginTop dương
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.xxl,
   },
-  menuItem: {
-    width: "30%",
-    marginBottom: SPACING.xl,
+
+  menuButton: {
+    width: "48%",
+    marginBottom: SPACING.lg,
   },
-  itemInner: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: SPACING.xl,
+
+  // CARD NHỎ LẠI, GỌN GÀNG HƠN
+  menuCard: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: 22,
+    paddingHorizontal: 12,
     borderRadius: BORDER_RADIUS.xl,
     alignItems: "center",
     ...SHADOWS.card,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#e5e7eb15",
   },
+
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#EBF5FF",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
-  itemText: {
-    fontSize: 13,
+
+  menuTitle: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1E293B",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
     textAlign: "center",
   },
 
-  newsSection: { paddingHorizontal: SPACING.xl, marginTop: SPACING.xxl },
-  newsTitle: { fontSize: 18, fontWeight: "700", color: "#1E293B", marginBottom: SPACING.md },
-  newsCard: {
-    backgroundColor: "#FFFFFF",
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
+  menuSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 16,
+  },
+
+  notificationCard: {
     flexDirection: "row",
     alignItems: "center",
-    ...SHADOWS.card,
+    marginHorizontal: SPACING.xl,
+    marginTop: SPACING.xl,
+    padding: SPACING.lg,
+    backgroundColor: "#ECFEFF",
+    borderRadius: BORDER_RADIUS.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accentTeal,
   },
-  newsHeadline: { fontSize: 15, fontWeight: "600", color: "#1E293B" },
-  newsDate: { fontSize: 13, color: "#64748B", marginTop: 4 },
+
+  notificationText: {
+    marginLeft: SPACING.md,
+    fontSize: FONT_SIZE.md,
+    color: COLORS.accentTeal,
+    fontWeight: FONT_WEIGHT.semibold,
+  },
 });

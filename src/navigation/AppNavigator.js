@@ -39,7 +39,7 @@ import LabHistoryDetail from '../screens/Lab_Technician/LabHistoryDetail';
 import PatientStack from './PatientStack';
 import ReceptionTabs from './ReceptionTabs';
 import AccountantTabs from './AccountantTabs';
-
+import Login from '../screens/auth/LoginScreen'
 const Stack = createStackNavigator();
 
 export default function AppNavigator() {
@@ -48,7 +48,7 @@ export default function AppNavigator() {
       {/* AUTH */}
       <Stack.Screen name="Auth" component={AuthNavigator} />
       <Stack.Screen name="RoleRedirect" component={RoleRedirect} />
-
+      <Stack.Screen name="Login" component={Login}/>
       {/* ADMIN */}
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
@@ -82,6 +82,7 @@ export default function AppNavigator() {
       <Stack.Screen name="PatientStack" component={PatientStack} />
       <Stack.Screen name="ReceptionTabs" component={ReceptionTabs} />
       <Stack.Screen name="AccountantTabs" component={AccountantTabs} />
+      
     </Stack.Navigator>
   );
 }

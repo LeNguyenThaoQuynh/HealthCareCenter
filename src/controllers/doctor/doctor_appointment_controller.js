@@ -5,131 +5,100 @@ import { DoctorAppointmentService } from '../../services/doctor/doctor_appointme
 
 export const DoctorAppointmentController = {
   /**
-   * TẢI DANH SÁCH LỊCH KHÁM CỦA BÁC SĨ
-   * Linh hoạt: không bắt buộc truyền đủ 4 callback
+   * TẢI LỊCH KHÁM CỦA BÁC SĨ
+   * ĐÃ FIX: luôn tắt loading dù lỗi hay thành công
    */
   async loadAppointments({
-    setDoctorId = null,
     setAppointments,
     setLoading,
     onError,
-    showAlert = true, // tự động hiện Alert khi lỗi (mặc định có)
+    showAlert = true,
   } = {}) {
     try {
       // Bắt đầu loading
       if (setLoading) setLoading(true);
       if (onError) onError(null);
 
-      // 1. Lấy doctorId từ storage
+      console.log('DoctorAppointmentController → Bắt đầu tải lịch...');
+
+      // 1. Lấy doctorId
       const doctorId = await DoctorAppointmentService.getDoctorId();
-      if (!doctorId) {
-        throw new Error('Không tìm thấy thông tin bác sĩ. Vui lòng đăng nhập lại.');
-      }
 
-      // Cập nhật doctorId nếu cần (một số màn hình dùng)
-      if (setDoctorId) setDoctorId(doctorId);
-
-      // 2. Lấy danh sách lịch khám
+      // 2. Lấy dữ liệu từ service (đã có timeout + log + không treo)
       const appointments = await DoctorAppointmentService.getAppointmentsByDoctor(doctorId);
 
-      // 3. Kiểm tra dữ liệu hợp lệ
-      if (!Array.isArray(appointments)) {
-        throw new Error('Dữ liệu lịch khám không hợp lệ từ máy chủ.');
-      }
-
-      // Cập nhật state
+      // 3. Cập nhật state
       if (setAppointments) {
         setAppointments(appointments);
+        console.log('Controller → Đã cập nhật', appointments.length, 'lịch vào state');
       }
 
       return { success: true, data: appointments };
 
     } catch (err) {
-      console.error('DoctorAppointmentController.loadAppointments → Error:', err);
+      console.error('DoctorAppointmentController → LỖI TOÀN BỘ:', err);
 
-      const message =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Không thể tải lịch khám. Vui lòng kiểm tra mạng và thử lại.';
+      const message = err?.message || 'Không thể tải lịch khám. Vui lòng thử lại.';
 
-      // Gọi callback lỗi (nếu có)
       if (onError) onError(message);
 
-      // Tự động hiện Alert (trừ khi tắt)
       if (showAlert) {
-        setTimeout(() => {
-          Alert.alert('Lỗi tải dữ liệu', message, [{ text: 'Đóng', style: 'cancel' }]);
-        }, 300);
+        Alert.alert('Lỗi tải dữ liệu', message, [{ text: 'OK' }]);
+      }
+
+      // Quan trọng: vẫn trả về mảng rỗng để UI không bị treo
+      if (setAppointments) {
+        setAppointments([]);
       }
 
       return { success: false, error: message };
 
     } finally {
-      // Luôn tắt loading dù thành công hay thất bại
-      if (setLoading) setLoading(false);
+      // BẮT BUỘC PHẢI CÓ → DÙ LỖI HAY KHÔNG CŨNG TẮT LOADING
+      if (setLoading) {
+        console.log('Controller → Tắt loading (finally)');
+        setLoading(false);
+      }
     }
   },
 
-  /**
-   * XÁC NHẬN LỊCH HẸN
-   */
-  async confirmAppointment(appointmentId, { setAppointments, onError } = {}) {
+  // XÁC NHẬN LỊCH
+  async confirmAppointment(appointmentId, { setAppointments } = {}) {
     try {
-      if (!appointmentId) throw new Error('ID lịch hẹn không hợp lệ.');
-
-      const updated = await DoctorAppointmentService.confirmAppointment(appointmentId);
+      const data = await DoctorAppointmentService.confirmAppointment(appointmentId);
 
       if (setAppointments) {
         setAppointments(prev =>
-          prev.map(appt => (appt.id === appointmentId ? updated : appt))
+          prev.map(a => (a.id === appointmentId ? { ...a, status: 'confirmed' } : a))
         );
       }
 
-      Alert.alert('Thành công', 'Đã xác nhận lịch hẹn thành công');
-      return { success: true, appointment: updated };
+      Alert.alert('Thành công', 'Lịch hẹn đã được xác nhận');
+      return { success: true, data };
+
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận lịch hẹn.';
-      console.error('confirmAppointment error:', err);
-
-      if (onError) onError(msg);
-      Alert.alert('Lỗi', msg);
-
-      return { success: false, error: msg };
+      Alert.alert('Lỗi', 'Không thể xác nhận lịch: ' + (err.message || ''));
+      return { success: false };
     }
   },
 
-  /**
-   * HỦY LỊCH HẸN
-   */
-  async cancelAppointment(
-    appointmentId,
-    { setAppointments, onError, cancelledBy = 'doctor', reason = null } = {}
-  ) {
+  // HỦY LỊCH
+  async cancelAppointment(appointmentId, { setAppointments, reason } = {}) {
     try {
-      if (!appointmentId) throw new Error('ID lịch hẹn không hợp lệ.');
-
-      const updated = await DoctorAppointmentService.cancelAppointment(
-        appointmentId,
-        cancelledBy,
-        reason
-      );
+      const data = await DoctorAppointmentService.cancelAppointment(appointmentId, 'doctor', reason);
 
       if (setAppointments) {
         setAppointments(prev =>
-          prev.map(appt => (appt.id === appointmentId ? updated : appt))
+          prev.map(a => (a.id === appointmentId ? { ...a, status: 'doctor_cancelled' } : a))
         );
       }
 
-      Alert.alert('Thành công', 'Đã hủy lịch hẹn thành công');
-      return { success: true, appointment: updated };
+      Alert.alert('Đã hủy', 'Lịch hẹn đã được hủy bởi bác sĩ');
+      return { success: true, data };
+
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Không thể hủy lịch hẹn.';
-      console.error('cancelAppointment error:', err);
-
-      if (onError) onError(msg);
-      Alert.alert('Lỗi', msg);
-
-      return { success: false, error: msg };
+      Alert.alert('Lỗi', 'Không thể hủy lịch: ' + (err.message || ''));
+      return { success: false };
     }
   },
 };

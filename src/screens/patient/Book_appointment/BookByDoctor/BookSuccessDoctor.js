@@ -1,4 +1,3 @@
-// src/screens/patient/Book_appointment/BookByDoctor/BookSuccessDoctor.js
 import React from 'react';
 import {
   View,
@@ -10,16 +9,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, FadeInUp, BounceIn } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const Colors = {
-  primary: '#1D4ED8',
-  success: '#10B981',
-  textPrimary: '#1E293B',
-  textSecondary: '#4B5563',
-  bg: '#F8FAFC',
+  primary: '#0066FF',
+  gradient: ['#0066FF', '#00D4FF'],
+  success: '#00D778',
+  successDark: '#00B060',
+  text: '#1E293B',
+  textLight: '#64748B',
+  bg: '#F8FAFF',
   white: '#FFFFFF',
   lightGreen: '#F0FDF4',
+  card: '#FFFFFF',
+  border: '#E2E8F0',
 };
 
 export default function BookSuccessDoctor() {
@@ -27,16 +31,8 @@ export default function BookSuccessDoctor() {
   const route = useRoute();
   const { doctor, selectedDate, timeSlot, appointment } = route.params || {};
 
-  React.useEffect(() => {
-    console.log('Doctor:', doctor);
-    console.log('Ngày khám:', selectedDate);
-    console.log('Khung giờ:', timeSlot?.display);
-    console.log('Lịch hẹn DB:', appointment);
-  }, [doctor, selectedDate, timeSlot, appointment]);
-
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN', {
+    return new Date(dateStr).toLocaleDateString('vi-VN', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -44,105 +40,118 @@ export default function BookSuccessDoctor() {
     });
   };
 
-  const formatTime = (isoString) => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const renderSpecializations = () => {
+    if (!doctor.specializations) return 'Bác sĩ đa khoa';
+    return Array.isArray(doctor.specializations)
+      ? doctor.specializations.join(' • ')
+      : doctor.specializations;
   };
 
   if (!doctor || !selectedDate || !timeSlot || !appointment) {
-    navigation.replace('Home');
+    navigation.replace('PatientHome');
     return null;
   }
 
   return (
     <View style={styles.container}>
-      <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.replace('Home')}>
-          <Ionicons name="home" size={24} color={Colors.primary} />
+      <LinearGradient colors={Colors.gradient} style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.replace('PatientHome')}>
+          <Ionicons name="home" size={30} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Đặt lịch thành công</Text>
-        <View style={{ width: 24 }} />
-      </Animated.View>
+        <Text style={styles.headerTitle}>Đặt lịch thành công</Text>
+        <View style={{ width: 30 }} />
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <Animated.View entering={FadeInUp.duration(600)} style={styles.successIcon}>
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" size={48} color={Colors.white} />
-          </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Animated.View entering={BounceIn.delay(300).springify()} style={styles.successIcon}>
+          <LinearGradient colors={[Colors.success, Colors.successDark]} style={styles.checkCircle}>
+            <Ionicons name="checkmark" size={80} color="#FFF" />
+          </LinearGradient>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.message}>
-          <Text style={styles.successTitle}>Đặt lịch khám thành công!</Text>
-          <Text style={styles.successSub}>
-            Bạn đã đặt lịch khám với bác sĩ {doctor.name} thành công.
+        <Animated.View entering={FadeInUp.delay(600)} style={styles.message}>
+          <Text style={styles.successTitle}>Đặt lịch thành công!</Text>
+          <Text style={styles.successSubtitle}>
+            Chúc mừng bạn đã đặt lịch khám với
+          </Text>
+          <Text style={styles.doctorHighlight}>BS. {doctor.name}</Text>
+          <Text style={styles.successSubtitle}>
+            Chúng tôi sẽ nhắc bạn trước giờ khám
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.detailCard}>
-          <Text style={styles.sectionTitle}>Thông tin lịch hẹn</Text>
+        <Animated.View entering={FadeInUp.delay(800)} style={styles.detailCard}>
+          <Text style={styles.cardTitle}>Thông tin lịch hẹn</Text>
+
+          <View style={styles.avatarSection}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{doctor.name?.[0]?.toUpperCase() || 'B'}</Text>
+            </View>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>{doctor.name}</Text>
+              <Text style={styles.specialty}>{renderSpecializations()}</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Ionicons name="person" size={18} color={Colors.textSecondary} />
-            <Text style={styles.label}>Bác sĩ</Text>
-            <Text style={styles.value}>{doctor.name}</Text>
+            <Ionicons name="location-outline" size={24} color={Colors.primary} />
+            <Text style={styles.label}>Phòng khám</Text>
+            <Text style={styles.value}>Phòng {doctor.room_number || 'Chưa xác định'}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Ionicons name="business" size={18} color={Colors.textSecondary} />
-            <Text style={styles.label}>Khoa</Text>
-            <Text style={styles.value}>{doctor.department_name || 'Chưa có'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar" size={18} color={Colors.textSecondary} />
+            <Ionicons name="calendar" size={24} color={Colors.primary} />
             <Text style={styles.label}>Ngày khám</Text>
             <Text style={styles.value}>{formatDate(selectedDate)}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Ionicons name="time" size={18} color={Colors.textSecondary} />
+            <Ionicons name="time" size={24} color={Colors.primary} />
             <Text style={styles.label}>Giờ khám</Text>
-            <Text style={styles.value}>{timeSlot.display}</Text>
+            <Text style={styles.timeValue}>{timeSlot.display}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Ionicons name="pricetag" size={18} color={Colors.textSecondary} />
+            <Ionicons name="cash-outline" size={24} color={Colors.primary} />
             <Text style={styles.label}>Phí khám</Text>
-            <Text style={styles.value}>150.000đ</Text>
+            <Text style={styles.priceValue}>150.000đ</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="barcode" size={18} color={Colors.textSecondary} />
-            <Text style={styles.label}>Mã lịch hẹn</Text>
-            <Text style={styles.value}>{appointment.id.slice(0, 8).toUpperCase()}</Text>
+          <View style={styles.codeRow}>
+            <Ionicons name="barcode-outline" size={26} color={Colors.success} />
+            <Text style={styles.codeLabel}>Mã lịch hẹn</Text>
+            <Text style={styles.codeValue}>{appointment.id.slice(0, 10).toUpperCase()}</Text>
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.note}>
-          <Ionicons name="information-circle" size={16} color={Colors.success} />
+        <Animated.View entering={FadeInUp.delay(1000)} style={styles.noteCard}>
+          <Ionicons name="heart" size={28} color={Colors.success} />
           <Text style={styles.noteText}>
-            Vui lòng đến trước 15 phút để làm thủ tục. Hủy lịch trước 2 giờ nếu không thể đến.
+            • Vui lòng đến trước <Text style={styles.bold}>15 phút</Text> để làm thủ tục{'\n'}
+            • Hủy lịch trước <Text style={styles.bold}>2 giờ</Text> nếu không thể đến{'\n'}
+            • Mang theo CMND/CCCD và bảo hiểm y tế (nếu có)
           </Text>
         </Animated.View>
       </ScrollView>
 
-      <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.footer}>
+      <Animated.View entering={FadeInUp.delay(1200)} style={styles.footer}>
         <TouchableOpacity
-          style={styles.secondaryBtn}
-          onPress={() => navigation.replace('Home')}
+          style={styles.homeBtn}
+          onPress={() => navigation.replace('PatientHome')}
         >
-          <Text style={styles.secondaryText}>Về trang chủ</Text>
+          <Text style={styles.homeText}>Về trang chủ</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.primaryBtn}
+          style={styles.appointmentBtn}
           onPress={() => navigation.replace('MyAppointments')}
         >
-          <Ionicons name="calendar" size={18} color={Colors.white} />
-          <Text style={styles.primaryText}>Xem lịch hẹn</Text>
+          <LinearGradient colors={['#0066FF', '#00D4FF']} style={styles.gradientBtn}>
+            <Ionicons name="calendar" size={22} color="#FFF" />
+            <Text style={styles.appointmentText}>Xem lịch hẹn của tôi</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -155,124 +164,110 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: Colors.white,
-    elevation: 2,
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
   },
-  title: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  content: { flex: 1 },
-  successIcon: {
-    alignItems: 'center',
-    marginTop: 32,
-  },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+  successIcon: { alignItems: 'center', marginTop: 40 },
   checkCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.success,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 30,
+    shadowColor: Colors.success,
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+  },
+  message: { alignItems: 'center', marginHorizontal: 32, marginTop: 32 },
+  successTitle: { fontSize: 30, fontWeight: '900', color: Colors.success, textAlign: 'center' },
+  successSubtitle: { fontSize: 17, color: Colors.textLight, textAlign: 'center', marginTop: 8, lineHeight: 26 },
+  doctorHighlight: { fontSize: 24, fontWeight: '900', color: Colors.primary, marginVertical: 8 },
+  detailCard: {
+    margin: 20,
+    marginTop: 32,
+    backgroundColor: Colors.card,
+    borderRadius: 36,
+    padding: 28,
+    elevation: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+  },
+  cardTitle: { fontSize: 22, fontWeight: '900', color: Colors.text, textAlign: 'center', marginBottom: 24 },
+  avatarSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  message: {
-    alignItems: 'center',
-    marginHorizontal: 32,
-    marginTop: 24,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.success,
-    textAlign: 'center',
-  },
-  successSub: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
-  },
-  detailCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 32,
+  avatarText: { fontSize: 40, fontWeight: 'bold', color: '#FFF' },
+  doctorInfo: { marginLeft: 20, flex: 1 },
+  doctorName: { fontSize: 24, fontWeight: '900', color: Colors.text },
+  specialty: { fontSize: 16, color: '#0066FF', marginTop: 6, fontWeight: '700' },
+  divider: { height: 2, backgroundColor: Colors.border, marginVertical: 24 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  label: { width: 110, fontSize: 16, color: Colors.textLight, fontWeight: '600' },
+  value: { flex: 1, fontSize: 17, color: Colors.text, fontWeight: '700' },
+  timeValue: { flex: 1, fontSize: 20, color: Colors.primary, fontWeight: '900' },
+  priceValue: { flex: 1, fontSize: 20, color: Colors.success, fontWeight: '900' },
+  codeRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#F0FDF4', 
     padding: 16,
-    borderRadius: 16,
-    elevation: 2,
+    borderRadius: 20,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: Colors.success,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
-  infoRow: {
+  codeLabel: { width: 110, fontSize: 16, color: Colors.success, fontWeight: '700' },
+  codeValue: { flex: 1, fontSize: 18, color: Colors.success, fontWeight: '900', letterSpacing: 2 },
+  noteCard: {
+    margin: 20,
+    marginTop: 10,
+    backgroundColor: '#F0FDF4',
+    padding: 24,
+    borderRadius: 32,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    borderWidth: 3,
+    borderColor: Colors.success,
   },
-  label: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    width: 90,
-  },
-  value: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-    flex: 1,
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 32,
-    padding: 12,
-    backgroundColor: Colors.lightGreen,
-    borderRadius: 12,
-    gap: 8,
-  },
-  noteText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.success,
-    lineHeight: 20,
-  },
+  noteText: { flex: 1, marginLeft: 20, fontSize: 16.5, color: Colors.text, lineHeight: 28 },
+  bold: { fontWeight: '900', color: Colors.success },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    padding: 20,
     backgroundColor: Colors.white,
-    elevation: 2,
-    gap: 12,
+    elevation: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 25,
+    gap: 16,
   },
-  secondaryBtn: {
+  homeBtn: {
     flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  primaryBtn: {
-    flex: 2,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
+    paddingVertical: 20,
+    borderRadius: 24,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  primaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.white,
+  homeText: { fontSize: 17, fontWeight: '700', color: Colors.textLight },
+  appointmentBtn: { flex: 2, borderRadius: 24, overflow: 'hidden' },
+  gradientBtn: {
+    flexDirection: 'row',
+    paddingVertical: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
   },
+  appointmentText: { fontSize: 18, fontWeight: '900', color: '#FFF' },
 });

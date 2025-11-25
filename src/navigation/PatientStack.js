@@ -64,7 +64,7 @@ export default function PatientStack() {
       <Stack.Screen name="BookingSuccess" component={BookingSuccess} />
 
       {/* 3. LỊCH HẸN & LỊCH SỬ */}
-      <Stack.Screen name="AppointmentScreen" component={AppointmentScreen} />
+      <Stack.Screen name="MyAppointments" component={AppointmentScreen} />
       <Stack.Screen name="HistoryScreen" component={HistoryScreen} />
 
       {/* 4. HỒ SƠ & BỆNH ÁN – MỚI THÊM */}
