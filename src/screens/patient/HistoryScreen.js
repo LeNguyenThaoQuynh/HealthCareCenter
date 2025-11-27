@@ -1,6 +1,3 @@
-// src/screens/patient/HistoryScreen.js
-// FINAL: ĐÃ HOÀN THÀNH → KHÔNG CÒN NÚT HỦY NỮA – SIÊU SẠCH!
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,

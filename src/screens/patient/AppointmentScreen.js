@@ -1,4 +1,3 @@
-// src/screens/patient/AppointmentHistory.js
 import React, { useEffect, useState } from 'react';
 import {
   View,

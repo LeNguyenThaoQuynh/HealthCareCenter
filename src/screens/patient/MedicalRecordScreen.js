@@ -1,6 +1,3 @@
-// screens/patient/MedicalRecordScreen.js
-// FINAL VERSION – HOÀN HẢO, KHÔNG CÒN LỖI NÀO
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -213,7 +210,6 @@ console.error("Lỗi tải dữ liệu:", err);
       if (isRefresh) setRefreshing(false);
     }
   };
-
   useEffect(() => {
     fetchPatientData();
   }, [activeTab]);
