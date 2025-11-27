@@ -22,7 +22,8 @@ import DoctorHomeScreen from '../screens/doctor/DoctorHomeScreen';
 import DoctorAppointmentsScreen from '../screens/doctor/DoctorAppointmentsScreen';
 import EditDoctorProfileScreen from '../screens/doctor/EditDoctorProfileScreen';
 import ProfileScreen from '../screens/doctor/ProfileScreen';
-
+import PatientStatisticsScreen from '../screens/doctor/PatientStatisticsScreen';
+import PaymentSummaryScreen from '../screens/doctor/PaymentSummaryScreen' 
 // === MÀN HÌNH QUY TRÌNH Y KHOA ===
 import OrderTestsScreen from '../screens/doctor/OrderTestsScreen';
 import FinalizeRecordScreen from '../screens/doctor/FinalizeRecordScreen';
@@ -65,7 +66,12 @@ export default function AppNavigator() {
       <Stack.Screen name="DoctorAppointments" component={DoctorAppointmentsScreen} />
       <Stack.Screen name="EditDoctorProfile" component={EditDoctorProfileScreen} />
       <Stack.Screen name="DoctorProfile" component={ProfileScreen} />
+      <Stack.Screen name="PaymentSummaryScreen"component={PaymentSummaryScreen}/>
+<Stack.Screen 
+  name="PatientStatistics" 
+  component={PatientStatisticsScreen} 
 
+/>
       {/* QUY TRÌNH Y KHOA */}
       <Stack.Screen name="OrderTests" component={OrderTestsScreen} />
       <Stack.Screen name="FinalizeRecord" component={FinalizeRecordScreen} />

@@ -1,4 +1,3 @@
-// src/services/doctor/doctor_appointment_service.js
 import { supabase } from '../../api/supabase';
 
 export const DoctorAppointmentService = {
@@ -11,7 +10,6 @@ export const DoctorAppointmentService = {
 
   async getAppointmentsByDoctor(doctorId) {
     try {
-      // 1. LẤY LỊCH HẸN
       const { data: appointments = [] } = await supabase
         .from('appointments')
         .select(`
@@ -28,7 +26,6 @@ export const DoctorAppointmentService = {
         .eq('doctor_id', doctorId)
         .order('appointment_date', { ascending: true });
 
-      // 2. LẤY PROFILE BỆNH NHÂN (có bảng profiles)
       const patientIds = [...new Set(appointments.map(a => a.user_id).filter(Boolean))];
       let patients = [];
       if (patientIds.length > 0) {
@@ -39,7 +36,6 @@ export const DoctorAppointmentService = {
         patients = data || [];
       }
 
-      // 3. LẤY ROOM_NUMBER (bảng doctors)
       let roomNumber = 'Chưa có phòng';
       try {
         const { data: doc } = await supabase
@@ -50,7 +46,6 @@ export const DoctorAppointmentService = {
         if (doc?.room_number) roomNumber = doc.room_number.trim();
       } catch (e) {}
 
-      // 4. LẤY CHUYÊN KHOA (bảng doctor_specializations)
       let specializationText = 'Chưa xác định chuyên khoa';
       try {
         const { data: specs = [] } = await supabase

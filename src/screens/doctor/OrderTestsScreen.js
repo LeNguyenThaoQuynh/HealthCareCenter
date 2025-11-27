@@ -18,43 +18,61 @@ export default function OrderTestsScreen({ route, navigation }) {
   const { appointmentId, patientId, patientName } = route.params || {};
 
   const [initialNote, setInitialNote] = useState('');
-  const [selectedTests, setSelectedTests] = useState([]);
+  const [selectedTests, setSelectedTests] = useState([]); // [{ name, price }]
   const [customTest, setCustomTest] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
 
+  // Danh sách xét nghiệm phổ biến + giá (cập nhật chính xác theo phòng khám)
   const commonTests = [
-    'Công thức máu', 'Đường huyết', 'Chức năng gan', 'Chức năng thận',
-    'CRP', 'Nước tiểu', 'Siêu âm bụng', 'X-Quang ngực', 'Điện tâm đồ',
-    'HBsAg', 'Anti-HCV', 'HIV', 'Siêu âm tuyến giáp'
+    { name: 'Công thức máu', price: 120000 },
+    { name: 'Đường huyết', price: 50000 },
+    { name: 'Chức năng gan (ALT, AST, GGT, Bil)', price: 250000 },
+    { name: 'Chức năng thận (Ure, Creatinin)', price: 120000 },
+    { name: 'CRP', price: 150000 },
+    { name: 'Nước tiểu 10 thông số', price: 80000 },
+    { name: 'Siêu âm bụng tổng quát', price: 300000 },
+    { name: 'X-Quang ngực thẳng', price: 150000 },
+    { name: 'Điện tâm đồ (ECG)', price: 120000 },
+    { name: 'HBsAg', price: 120000 },
+    { name: 'Anti-HCV', price: 200000 },
+    { name: 'HIV (Combo Ag/Ab)', price: 300000 },
+    { name: 'Siêu âm tuyến giáp', price: 250000 },
   ];
 
   const toggleTest = (test) => {
-    console.log('Toggle xét nghiệm:', test);
-    setSelectedTests(prev =>
-      prev.includes(test) ? prev.filter(t => t !== test) : [...prev, test]
-    );
+    setSelectedTests(prev => {
+      const exists = prev.find(t => t.name === test.name);
+      return exists
+        ? prev.filter(t => t.name !== test.name)
+        : [...prev, { name: test.name, price: test.price }];
+    });
   };
 
   const addCustomTest = () => {
     const name = customTest.trim();
-    if (name && !selectedTests.includes(name)) {
-      console.log('Thêm xét nghiệm tùy chỉnh:', name);
-      setSelectedTests(prev => [...prev, name]);
-      setCustomTest('');
-    }
+    const priceStr = customPrice.replace(/[^0-9]/g, '');
+    if (!name) return Alert.alert('Lỗi', 'Vui lòng nhập tên xét nghiệm');
+    if (!priceStr || parseInt(priceStr) <= 0)
+      return Alert.alert('Lỗi', 'Vui lòng nhập giá hợp lệ');
+
+    const price = parseInt(priceStr);
+    if (selectedTests.some(t => t.name === name))
+      return Alert.alert('Đã tồn tại', 'Xét nghiệm này đã được chọn');
+
+    setSelectedTests(prev => [...prev, { name, price }]);
+    setCustomTest('');
+    setCustomPrice('');
   };
+
+  const totalPrice = selectedTests.reduce((sum, t) => sum + t.price, 0);
 
   const sendTests = async () => {
     if (selectedTests.length === 0) {
       return Alert.alert('Chưa chọn', 'Vui lòng chọn ít nhất 1 xét nghiệm');
     }
 
-    console.log('Bắt đầu gửi chỉ định xét nghiệm...');
-    console.log('Số lượng xét nghiệm:', selectedTests.length);
-    console.log('Danh sách:', selectedTests);
-    console.log('Appointment ID:', appointmentId);
-
     try {
-      console.log('1. Tạo bệnh án tạm (chờ kết quả cận lâm sàng)...');
+      // 1. Tạo bệnh án tạm
       const { data: record, error: recordError } = await supabase
         .from('medical_records')
         .insert({
@@ -66,16 +84,18 @@ export default function OrderTestsScreen({ route, navigation }) {
         .select()
         .single();
 
-      if (recordError) throw recordError;
-      console.log('Tạo bệnh án tạm thành công, ID:', record.id);
+      if (recordError || !record) throw new Error('Không tạo được bệnh án tạm');
 
-      console.log('2. Gửi chỉ định', selectedTests.length, 'xét nghiệm...');
-      const testPayload = selectedTests.map(name => ({
+      // 2. Gửi danh sách xét nghiệm + giá
+      const testPayload = selectedTests.map(t => ({
         patient_id: patientId,
         appointment_id: appointmentId,
         test_type: 'lab',
-        test_name: name,
+        test_name: t.name,
+        price: t.price,
+        total_price: totalPrice,   // lưu tổng tiền cho cả nhóm xét nghiệm
         status: 'pending',
+        ordered_at: new Date().toISOString(),
       }));
 
       const { error: testError } = await supabase
@@ -83,25 +103,30 @@ export default function OrderTestsScreen({ route, navigation }) {
         .insert(testPayload);
 
       if (testError) throw testError;
-      console.log('Gửi chỉ định xét nghiệm thành công');
 
-      console.log('3. Cập nhật trạng thái lịch hẹn → waiting_results');
+      // 3. Cập nhật trạng thái lịch hẹn
       const { error: aptError } = await supabase
         .from('appointments')
         .update({ status: 'waiting_results' })
         .eq('id', appointmentId);
 
       if (aptError) throw aptError;
-      console.log('Cập nhật trạng thái lịch hẹn thành công');
 
       Alert.alert(
         'Thành công!',
-        `Đã gửi chỉ định ${selectedTests.length} xét nghiệm.\nKhi có kết quả, bạn sẽ được thông báo để hoàn tất bệnh án.`,
-        [{ text: 'OK', onPress: () => navigation.replace('DoctorAppointments') }]
+        `Đã gửi chỉ định ${selectedTests.length} xét nghiệm.\nTổng chi phí: ${totalPrice.toLocaleString(
+          'vi-VN'
+        )} ₫\n\nBệnh nhân sẽ được thông báo thanh toán và thực hiện xét nghiệm.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.replace('DoctorAppointments'),
+          },
+        ]
       );
     } catch (err) {
-      console.error('Lỗi khi gửi chỉ định xét nghiệm:', err);
-      Alert.alert('Lỗi', err.message || 'Không thể gửi chỉ định');
+      console.error('Lỗi gửi chỉ định:', err);
+      Alert.alert('Lỗi', err.message || 'Không thể gửi chỉ định xét nghiệm');
     }
   };
 
@@ -109,20 +134,21 @@ export default function OrderTestsScreen({ route, navigation }) {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar barStyle="light-content" backgroundColor="#3B82F6" />
 
+      {/* Header */}
       <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={styles.header}>
         <Text style={styles.headerTitle}>Chỉ định xét nghiệm</Text>
         <Text style={styles.headerSubtitle}>
-          Bệnh nhân: <Text style={{ fontWeight: 'bold' }}>{patientName}</Text>
+          Bệnh nhân: <Text style={{ fontWeight: 'bold' }}>{patientName || 'Không xác định'}</Text>
         </Text>
       </LinearGradient>
 
       <ScrollView style={{ flex: 1, backgroundColor: '#F8FAFC' }} contentContainerStyle={{ padding: 20 }}>
-
+        {/* Ghi chú triệu chứng */}
         <View style={styles.card}>
           <Text style={styles.label}>Triệu chứng / Lý do khám</Text>
           <TextInput
             style={styles.textArea}
-            placeholder="Sốt cao, ho có đờm, mệt mỏi 5 ngày..."
+            placeholder="Nhập triệu chứng, tiền sử bệnh..."
             value={initialNote}
             onChangeText={setInitialNote}
             multiline
@@ -130,62 +156,102 @@ export default function OrderTestsScreen({ route, navigation }) {
           />
         </View>
 
+        {/* Danh sách xét nghiệm phổ biến */}
         <View style={styles.card}>
-          <Text style={styles.label}>Chọn xét nghiệm cần làm</Text>
+          <Text style={styles.label}>Chọn xét nghiệm</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
-            {commonTests.map(test => (
-              <TouchableOpacity
-                key={test}
-                onPress={() => toggleTest(test)}
-                style={[
-                  styles.testButton,
-                  selectedTests.includes(test) && styles.testButtonSelected
-                ]}
-              >
-                <Text style={[
-                  styles.testButtonText,
-                  selectedTests.includes(test) && styles.testButtonTextSelected
-                ]}>
-                  {test}
-                </Text>
+            {commonTests.map(test => {
+              const isSelected = selectedTests.some(t => t.name === test.name);
+              return (
+                <TouchableOpacity
+                  key={test.name}
+                  onPress={() => toggleTest(test)}
+                  style={[styles.testButton, isSelected && styles.testButtonSelected]}>
+                  <Text
+                    style={[
+                      styles.testButtonText,
+                      isSelected && styles.testButtonTextSelected,
+                    ]}>
+                    {test.name}
+                    {'\n'}
+                    <Text style={{ fontSize: 11, opacity: 0.9 }}>
+                      {test.price.toLocaleString('vi-VN')}₫
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Thêm xét nghiệm tùy chỉnh */}
+          <View style={{ marginTop: 28 }}>
+            <Text style={{ fontWeight: '600', marginBottom: 8, color: '#1E293B' }}>
+              Thêm xét nghiệm khác
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
+              <TextInput
+                style={[styles.input, { flex: 2 }]}
+                placeholder="Tên xét nghiệm..."
+                value={customTest}
+                onChangeText={setCustomTest}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Giá (₫)"
+                value={customPrice}
+                onChangeText={setCustomPrice}
+                keyboardType="numeric"
+              />
+              <TouchableOpacity onPress={addCustomTest}>
+                <Ionicons name="add-circle" size={52} color="#10B981" />
               </TouchableOpacity>
-            ))}
+            </View>
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập xét nghiệm khác..."
-              value={customTest}
-              onChangeText={setCustomTest}
-              onSubmitEditing={addCustomTest}
-            />
-            <TouchableOpacity onPress={addCustomTest}>
-              <Ionicons name="add-circle" size={48} color="#10B981" />
-            </TouchableOpacity>
-          </View>
-
+          {/* Danh sách đã chọn + Tổng tiền */}
           {selectedTests.length > 0 && (
-            <View style={{ marginTop: 24 }}>
+            <View style={{ marginTop: 32 }}>
               <Text style={styles.selectedTitle}>
                 Đã chọn ({selectedTests.length} xét nghiệm)
               </Text>
+
               {selectedTests.map((test, i) => (
                 <View key={i} style={styles.selectedItem}>
-                  <Text style={styles.selectedText}>{i + 1}. {test}</Text>
-                  <TouchableOpacity onPress={() => toggleTest(test)}>
-                    <Ionicons name="close-circle" size={28} color="#EF4444" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.selectedText}>{i + 1}. {test.name}</Text>
+                    <Text style={{ color: '#059669', fontWeight: 'bold', fontSize: 15 }}>
+                      {test.price.toLocaleString('vi-VN')} ₫
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => toggleTest({ name: test.name })}>
+                    <Ionicons name="close-circle" size={30} color="#EF4444" />
                   </TouchableOpacity>
                 </View>
               ))}
+
+              {/* Tổng tiền nổi bật */}
+              <View style={styles.totalContainer}>
+                <Text style={styles.totalLabel}>TỔNG CHI PHÍ</Text>
+                <Text style={styles.totalPrice}>
+                  {totalPrice.toLocaleString('vi-VN')} ₫
+                </Text>
+              </View>
             </View>
           )}
         </View>
 
-        <TouchableOpacity onPress={sendTests} style={{ marginVertical: 30 }}>
+        {/* Nút gửi chỉ định */}
+        <TouchableOpacity onPress={sendTests} style={{ marginVertical: 32 }}>
           <LinearGradient colors={['#10B981', '#059669']} style={styles.sendButton}>
-            <Ionicons name="paper-plane" size={32} color="#fff" />
-            <Text style={styles.sendButtonText}>GỬI CHỈ ĐỊNH XÉT NGHIỆM</Text>
+            <Ionicons name="paper-plane" size={34} color="#fff" />
+            <View style={{ marginLeft: 16 }}>
+              <Text style={styles.sendButtonText}>GỬI CHỈ ĐỊNH XÉT NGHIỆM</Text>
+              {selectedTests.length > 0 && (
+                <Text style={{ color: '#fff', fontSize: 15, textAlign: 'center', marginTop: 4 }}>
+                  Tổng: {totalPrice.toLocaleString('vi-VN')} ₫
+                </Text>
+              )}
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -193,22 +259,12 @@ export default function OrderTestsScreen({ route, navigation }) {
   );
 }
 
+// Style đẹp chuẩn theme
 const styles = {
-  header: {
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#DBEAFE',
-    marginTop: 8,
-  },
+  header: { paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#fff' },
+  headerSubtitle: { fontSize: 17, color: '#DBEAFE', marginTop: 8 },
+
   card: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -220,24 +276,19 @@ const styles = {
     shadowRadius: 12,
     elevation: 8,
   },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 12,
-  },
+  label: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginBottom: 12 },
+
   textArea: {
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
-    minHeight: 100,
+    minHeight: 110,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     textAlignVertical: 'top',
   },
   input: {
-    flex: 1,
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
@@ -245,52 +296,50 @@ const styles = {
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
+
   testButton: {
     backgroundColor: '#E0E7FF',
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 30,
     borderWidth: 2,
     borderColor: '#E0E7FF',
+    minWidth: 130,
+    alignItems: 'center',
   },
-  testButtonSelected: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  testButtonText: {
-    color: '#4338CA',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  testButtonTextSelected: {
-    color: '#fff',
-  },
-  selectedTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 12,
-  },
+  testButtonSelected: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+  testButtonText: { color: '#4338CA', fontWeight: '600', fontSize: 13.5, textAlign: 'center' },
+  testButtonTextSelected: { color: '#fff' },
+
+  selectedTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginBottom: 12 },
   selectedItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#DBEAFE',
-    padding: 14,
+    padding: 16,
     borderRadius: 16,
     marginBottom: 10,
   },
-  selectedText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1E40AF',
-    fontWeight: '600',
+  selectedText: { fontSize: 16, color: '#1E40AF', fontWeight: '600' },
+
+  totalContainer: {
+    marginTop: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#10B981',
   },
+  totalLabel: { fontSize: 20, fontWeight: 'bold', color: '#065F46' },
+  totalPrice: { fontSize: 32, fontWeight: 'bold', color: '#059669', marginTop: 8 },
+
   sendButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    paddingVertical: 20,
+    paddingVertical: 22,
     borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -298,10 +347,5 @@ const styles = {
     shadowRadius: 20,
     elevation: 15,
   },
-  sendButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
+  sendButtonText: { color: '#fff', fontSize: 21, fontWeight: 'bold', letterSpacing: 1 },
 };

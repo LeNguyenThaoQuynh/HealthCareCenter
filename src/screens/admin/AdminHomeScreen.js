@@ -66,11 +66,14 @@ export default function AdminHomeScreen() {
 
   const menuItems = [
     { title: "Quản lý bác sĩ",     icon: "medkit-outline",     screen: "ManageDoctors",       colors: ["#3B82F6", "#1D4ED8"] },
-    { title: "Quản lý bệnh nhân",  icon: "heart-outline",      screen: "Bệnh nhân",    colors: ["#EC4899", "#BE185D"] },
     { title: "Tạo bác sĩ",         icon: "person-add-outline", screen: "CreateDoctorAccount",   colors: ["#10B981", "#059669"] },
-    { title: "CreateDoctorSchedule",  icon: "calendar-outline",   screen: "Lịch khám",    colors: ["#8B5CF6", "#6D28D9"] },
-    { title: "Báo cáo",            icon: "bar-chart-outline",  screen: "Báo cáo",      colors: ["#F97316", "#EA580C"] },
-    { title: "Cài đặt",            icon: "settings-outline",   screen: "Cài đặt",      colors: ["#64748B", "#475569"] },
+        { title: "thống kê doanh thu ",         icon: "area-chart", screen: "",   colors: ["#10B981", "#059669"] },
+        { title: "thống kê số lượng bệnh nhân",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
+        { title: "bác sĩ ưa thích ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
+        { title: "tạo khoa ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
+        { title: "thống kê doanh thu ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
+
+    
   ];
 
   if (loading) {
@@ -185,17 +188,15 @@ const styles = {
   sectionTitle: { fontSize: 19, fontWeight: "bold", color: COLORS.textPrimary, marginBottom: SPACING.lg },
 
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  menuBtn: { width: "48%", marginBottom: SPACING.lg },
+  menuBtn: { width: "45%", marginBottom: SPACING.lg },
   menuGradient: {
     borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.xl,
-    height: 110,
+    height: 80,
     justifyContent: "center",
     alignItems: "center",
     ...SHADOWS.large,
   },
-  menuText: { marginTop: 12, fontSize: 14, fontWeight: "600", color: "#FFF", textAlign: "center" },
-
+  menuText: { marginTop: 12, fontSize: 14, fontWeight: "400", color: "#FFF", textAlign: "center" },
   loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
   loadingText: { marginTop: 16, fontSize: 16, color: COLORS.textSecondary },
 };

@@ -47,7 +47,7 @@ export default function DoctorHomeScreen() {
     { title: "Lịch làm việc", icon: "calendar-outline", screen: "DoctorAppointments", subtitle: "Xem lịch hôm nay" },
     { title: "Hồ sơ cá nhân", icon: "person-outline", screen: "DoctorProfile", subtitle: "Thông tin & chứng chỉ" },
     { title: "Bệnh nhân", icon: "people-outline", screen: "PatientList", subtitle: "Quản lý hồ sơ" },
-    { title: "Thống kê", icon: "bar-chart-outline", screen: "DoctorStats", subtitle: "Doanh thu & hiệu suất" },
+    { title: "Thống kê", icon: "bar-chart-outline", screen: "PatientStatistics", subtitle: "Doanh thu & hiệu suất" },
   ];
 
   const scales = useRef(menu.map(() => new Animated.Value(1))).current;

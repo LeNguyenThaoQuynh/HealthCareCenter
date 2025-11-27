@@ -9,10 +9,13 @@ import DoctorAppointmentsScreen from '../screens/doctor/DoctorAppointmentsScreen
 import PatientListScreen from '../screens/doctor/PatientListScreen';              // Danh sách bệnh nhân
 import EditDoctorProfileScreen from '../screens/doctor/EditDoctorProfileScreen';  // Chỉnh sửa hồ sơ
 import ProfileScreen from '../screens/doctor/ProfileScreen';                      // Hồ sơ bác sĩ
+import PatientStatisticsScreen from '../screens/doctor/PatientStatisticsScreen';
 
 // MÀN HÌNH MỚI – CHUẨN QUY TRÌNH Y KHOA
 import OrderTestsScreen from '../screens/doctor/OrderTestsScreen';               // Chỉ định xét nghiệm
-import FinalizeRecordScreen from '../screens/doctor/FinalizeRecordScreen';         // Hoàn tất bệnh án (kê đơn)
+import FinalizeRecordScreen from '../screens/doctor/FinalizeRecordScreen'; 
+import PaymentSummaryScreen from '../screens/doctor/PaymentSummaryScreen'
+// Hoàn tất bệnh án (kê đơn)
 
 const Drawer = createDrawerNavigator();
 
@@ -83,7 +86,6 @@ export default function DoctorNavigator() {
         }}
       />
 
-      {/* HỒ SƠ BÁC SĨ */}
       <Drawer.Screen
         name="ProfileDoctor"
         component={ProfileScreen}
@@ -101,6 +103,26 @@ export default function DoctorNavigator() {
           drawerIcon: ({ color, size }) => <Ionicons name="create" size={size} color={color} />,
         }}
       />
+      <Drawer.Screen
+        name="PatientStatistics"  // Tên route nên rõ nghĩa
+        component={PatientStatisticsScreen}  // Dùng đúng tên import
+        options={{
+          drawerLabel: 'Thống kê bệnh nhân',
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart" size={size} color={color} />
+          ),
+          headerTitle: 'Thống kê bệnh nhân',
+        }}
+      />
+       <Drawer.Screen
+        name="PaymentSummaryScreen"
+        component={PaymentSummaryScreen}
+        options={{
+          drawerLabel: 'Chỉnh sửa hồ sơ',
+          drawerIcon: ({ color, size }) => <Ionicons name="create" size={size} color={color} />,
+        }}
+      />
+
     </Drawer.Navigator>
   );
 }
