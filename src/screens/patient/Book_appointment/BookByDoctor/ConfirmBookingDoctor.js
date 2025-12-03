@@ -1,4 +1,3 @@
-// src/screens/patient/Book_appointment/BookByDoctor/ConfirmBookingDoctor.js
 import React, { useState } from 'react';
 import {
   View,
@@ -12,16 +11,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../../../api/supabase';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const Colors = {
-  primary: '#1D4ED8',
-  success: '#10B981',
-  textPrimary: '#1E293B',
-  textSecondary: '#4B5563',
-  bg: '#F8FAFC',
+  primary: '#0066FF',
+  gradient: ['#0066FF', '#00D4FF'],
+  success: '#00D778',
+  accent: '#00B074',
+  text: '#1E293B',
+  textLight: '#64748B',
+  bg: '#F8FAFF',
   white: '#FFFFFF',
-  lightBlue: '#EFF6FF',
+  card: '#FFFFFF',
+  lightBlue: '#EBF8FF',
+  border: '#E2E8F0',
 };
 
 export default function ConfirmBookingDoctor() {
@@ -32,28 +36,19 @@ export default function ConfirmBookingDoctor() {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    console.log('========== CONFIRM BOOKING ==========');
-    console.log('Doctor:', doctor);
-    console.log('department_id:', doctor?.department_id);
-    console.log('Ngày khám:', selectedDate);
-    console.log('Khung giờ:', timeSlot?.display, '| slot_id:', timeSlot?.slot_id);
-    console.log('=====================================');
-
-    if (!doctor?.id || !selectedDate || !timeSlot?.slot_id || !doctor?.department_id) {
-      Alert.alert('Lỗi', 'Thiếu thông tin đặt lịch');
+    if (!doctor?.id || !selectedDate || !timeSlot?.slot_id) {
+      Alert.alert('Lỗi dữ liệu', 'Thiếu thông tin đặt lịch');
       navigation.goBack();
     }
   }, [doctor, selectedDate, timeSlot, navigation]);
 
   const handleConfirm = async () => {
     if (loading) return;
-
     setLoading(true);
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw new Error('Không tìm thấy người dùng');
 
-      console.log('User ID:', user.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Vui lòng đăng nhập lại');
 
       const appointmentData = {
         user_id: user.id,
@@ -61,13 +56,11 @@ export default function ConfirmBookingDoctor() {
         appointment_date: new Date(`${selectedDate}T${timeSlot.start}:00`).toISOString(),
         date: selectedDate,
         slot_id: timeSlot.slot_id,
-        department_id: doctor.department_id,
+        department_id: doctor.department_id || null,
         status: 'pending',
         patient_name: doctor.name,
         patient_phone: '0123456789',
       };
-
-      console.log('Dữ liệu gửi lên DB:', appointmentData);
 
       const { data, error } = await supabase
         .from('appointments')
@@ -77,22 +70,22 @@ export default function ConfirmBookingDoctor() {
 
       if (error) throw error;
 
-      console.log('Đặt lịch thành công:', data);
-
-      // VỀ TRANG HOME NGAY LẬP TỨC
-      navigation.replace('HomeScreen');
+      Alert.alert(
+        'Đặt lịch thành công!',
+        `Lịch khám với BS. ${doctor.name} đã được xác nhận.`,
+        [{ text: 'Xem lịch khám', onPress: () => navigation.replace('MyAppointments') }]
+      );
 
     } catch (err) {
-      console.error('Lỗi đặt lịch:', err);
-      Alert.alert('Lỗi', err.message || 'Không thể đặt lịch. Vui lòng thử lại.');
+      console.error(err);
+      Alert.alert('Đặt lịch thất bại', err.message || 'Vui lòng thử lại sau');
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN', {
+    return new Date(dateStr).toLocaleDateString('vi-VN', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -100,90 +93,110 @@ export default function ConfirmBookingDoctor() {
     });
   };
 
+  const formatTime = (display) => display.replace('-', ' to ');
+
+  const renderSpecializations = () => {
+    if (!doctor.specializations) return 'Bác sĩ đa khoa';
+    if (Array.isArray(doctor.specializations)) {
+      return doctor.specializations.join(' • ');
+    }
+    return doctor.specializations;
+  };
+
   if (!doctor || !selectedDate || !timeSlot) return null;
 
   return (
     <View style={styles.container}>
-      <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+      <LinearGradient colors={Colors.gradient} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={30} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Xác nhận đặt lịch</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-          <Ionicons name="home" size={24} color={Colors.primary} />
+        <Text style={styles.headerTitle}>Xác nhận đặt lịch</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('PatientHome')}>
+          <Ionicons name="home" size={28} color="#FFF" />
         </TouchableOpacity>
-      </Animated.View>
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.sectionTitle}>Thông tin bác sĩ</Text>
-          <View style={styles.infoRow}>
-            <Ionicons name="person" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{doctor.name}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+        <Animated.View entering={FadeInDown.delay(100)} style={styles.mainCard}>
+          <View style={styles.doctorSection}>
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarLetter}>{doctor.name?.[0]?.toUpperCase() || 'B'}</Text>
+            </View>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>{doctor.name}</Text>
+              <Text style={styles.specialty}>{renderSpecializations()}</Text>
+            </View>
           </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="medkit" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{doctor.specialization || 'Chưa có'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="business" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>Khoa: {doctor.department_name || 'Chưa có'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="location" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>Phòng {doctor.room_number || 'Chưa có'}</Text>
-          </View>
-        </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.sectionTitle}>Thời gian khám</Text>
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{formatDate(selectedDate)}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="time" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{timeSlot.display}</Text>
-          </View>
-        </View>
+          <View style={styles.divider} />
 
-        <View style={styles.priceCard}>
-          <Text style={styles.priceLabel}>Phí khám</Text>
+          <View style={styles.detailRow}>
+            <Ionicons name="medkit-outline" size={24} color={Colors.primary} />
+            <Text style={styles.detailLabel}>Chuyên khoa</Text>
+            <Text style={styles.detailValue}>{renderSpecializations()}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={24} color={Colors.primary} />
+            <Text style={styles.detailLabel}>Phòng khám</Text>
+            <Text style={styles.detailValue}>Phòng {doctor.room_number || 'Chưa xác định'}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Ionicons name="calendar" size={24} color={Colors.primary} />
+            <Text style={styles.detailLabel}>Ngày khám</Text>
+            <Text style={styles.detailValue}>{formatDate(selectedDate)}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Ionicons name="time" size={24} color={Colors.primary} />
+            <Text style={styles.detailLabel}>Giờ khám</Text>
+            <Text style={styles.timeValue}>{formatTime(timeSlot.display)}</Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(300)} style={styles.priceCard}>
+          <Text style={styles.priceLabel}>Phí khám dự kiến</Text>
           <Text style={styles.price}>150.000đ</Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.note}>
-          <Ionicons name="information-circle" size={16} color={Colors.primary} />
+        <Animated.View entering={FadeInUp.delay(400)} style={styles.noteCard}>
+          <Ionicons name="information-circle" size={24} color={Colors.primary} />
           <Text style={styles.noteText}>
-            Vui lòng đến trước 15 phút để làm thủ tục. Hủy lịch trước 2 giờ nếu không thể đến.
+            • Vui lòng đến trước <Text style={styles.bold}>15 phút</Text> để làm thủ tục{'\n'}
+            • Hủy lịch trước <Text style={styles.bold}>2 giờ</Text> nếu không thể đến{'\n'}
+            • Mang theo giấy tờ tùy thân và bảo hiểm y tế (nếu có)
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <Animated.View entering={FadeInUp.delay(500)} style={styles.footer}>
         <TouchableOpacity
-          style={[styles.cancelBtn, loading && styles.disabledBtn]}
+          style={[styles.cancelBtn, loading && styles.disabled]}
           onPress={() => navigation.goBack()}
           disabled={loading}
         >
-          <Text style={styles.cancelText}>Hủy</Text>
+          <Text style={styles.cancelText}>Hủy bỏ</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.confirmBtn, loading && styles.disabledBtn]}
+          style={[styles.confirmBtn, loading && styles.disabled]}
           onPress={handleConfirm}
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors.white} />
-          ) : (
-            <>
-              <Ionicons name="checkmark" size={20} color={Colors.white} />
-              <Text style={styles.confirmText}>Xác nhận đặt lịch</Text>
-            </>
-          )}
+          <LinearGradient colors={['#00D778', '#00B060']} style={styles.confirmGradient}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={26} color="#FFF" />
+                <Text style={styles.confirmText}>XÁC NHẬN ĐẶT LỊCH</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -194,102 +207,95 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: Colors.white,
-    elevation: 2,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
-  title: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  content: { flex: 1 },
-  summaryCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 1,
+  headerTitle: { fontSize: 26, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+  scroll: { flex: 1 },
+  mainCard: {
+    margin: 20,
+    marginTop: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 32,
+    padding: 24,
+    elevation: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 25,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
+  doctorSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
   },
-  infoText: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-  },
+  avatarLetter: { fontSize: 36, fontWeight: 'bold', color: '#FFF' },
+  doctorInfo: { marginLeft: 20, flex: 1 },
+  doctorName: { fontSize: 24, fontWeight: '900', color: Colors.text },
+  specialty: { fontSize: 16, color: '#0066FF', marginTop: 6, fontWeight: '700' },
+  divider: { height: 1.5, backgroundColor: '#E2E8F0', marginVertical: 20 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+  detailLabel: { width: 100, fontSize: 15.5, color: Colors.textLight, fontWeight: '600' },
+  detailValue: { flex: 1, fontSize: 16.5, color: Colors.text, fontWeight: '600' },
+  timeValue: { flex: 1, fontSize: 19, color: Colors.primary, fontWeight: '900' },
   priceCard: {
+    marginHorizontal: 20,
     backgroundColor: Colors.lightBlue,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    padding: 24,
+    borderRadius: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0066FF',
   },
-  priceLabel: { fontSize: 16, color: Colors.primary },
-  price: { fontSize: 20, fontWeight: '700', color: Colors.primary },
-  note: {
+  priceLabel: { fontSize: 17, color: Colors.primary, fontWeight: '700' },
+  price: { fontSize: 28, fontWeight: '900', color: Colors.primary },
+  noteCard: {
+    margin: 20,
+    marginTop: 10,
+    backgroundColor: '#EBF8FF',
+    padding: 20,
+    borderRadius: 28,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 20,
-    padding: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    gap: 8,
+    borderWidth: 2,
+    borderColor: '#0066FF',
   },
-  noteText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.primary,
-    lineHeight: 20,
-  },
+  noteText: { flex: 1, marginLeft: 16, fontSize: 15.5, color: Colors.text, lineHeight: 24 },
+  bold: { fontWeight: '900', color: Colors.primary },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    padding: 20,
     backgroundColor: Colors.white,
-    elevation: 2,
-    gap: 12,
+    elevation: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    gap: 16,
   },
   cancelBtn: {
     flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  confirmBtn: {
-    flex: 2,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
+    paddingVertical: 18,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  confirmText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.white,
+  cancelText: { fontSize: 17, fontWeight: '700', color: Colors.textLight },
+  confirmBtn: { flex: 2, borderRadius: 20, overflow: 'hidden' },
+  confirmGradient: {
+    flexDirection: 'row',
+    paddingVertical: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
   },
-  disabledBtn: {
-    opacity: 0.6,
-  },
+  confirmText: { fontSize: 18, fontWeight: '900', color: '#FFF' },
+  disabled: { opacity: 0.6 },
 });

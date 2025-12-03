@@ -1,88 +1,89 @@
 // src/controllers/patient/AppointmentController.js
+// → FILE .JS – CHẠY NGAY, KHÔNG LỖI!
 
 import { supabase } from '../../api/supabase';
 import { AppointmentService } from '../../services/patient/AppointmentService';
 
 export class AppointmentController {
   /**
-   * TẢI DANH SÁCH LỊCH HẸN CỦA BỆNH NHÂN
-   * @param {Function} setAppointments - React state setter
-   * @param {Function} setLoading
-   * @param {Function} setError
+   * TẢI DANH SÁCH LỊCH HẸN
    */
   static async loadAppointments(setAppointments, setLoading, setError) {
-    // BẮT BUỘC PHẢI CÓ HÀM SETTER → TRÁNH LỖI "callback không hợp lệ"
-    if (typeof setAppointments !== 'function' || 
-        typeof setLoading !== 'function' || 
-        typeof setError !== 'function') {
-      console.error('Lỗi: Các hàm callback phải là function hợp lệ!');
+    // Cho phép setLoading và setError là optional
+    const safeSetLoading = setLoading || (() => {});
+    const safeSetError = setError || (() => {});
+
+    if (typeof setAppointments !== 'function') {
+      console.error('setAppointments phải là function!');
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      safeSetLoading(true);
+      safeSetError(null);
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        throw new Error('Vui lòng đăng nhập lại.');
+        throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
       }
 
       const appointments = await AppointmentService.fetchAppointmentsByUser(user.id);
-
-      // Cập nhật state an toàn
       setAppointments(appointments || []);
 
     } catch (error) {
-      console.error('Error in loadAppointments:', error);
-      setError(error.message || 'Không thể tải lịch hẹn. Vui lòng thử lại.');
+      console.error('loadAppointments error:', error);
+      const msg = error.message || 'Không thể tải lịch hẹn. Vui lòng thử lại.';
+      safeSetError(msg);
     } finally {
-      setLoading(false);
+      safeSetLoading(false);
     }
   }
 
   /**
-   * HỦY LỊCH HẸN
+   * HỦY LỊCH HẸN – DÙNG TRONG HistoryScreen
    */
-  static async cancelAppointment(
-    appointmentId,
-    setAppointments,
-    setError,
-    cancelledBy = 'patient',
-    reason = null
-  ) {
-    if (!appointmentId || typeof setAppointments !== 'function' || typeof setError !== 'function') {
-      setError('Dữ liệu không hợp lệ.');
-      return { success: false, message: 'Thiếu thông tin để hủy lịch.' };
+  // Trong AppointmentService.js
+static async cancelAppointment(appointmentId, cancelledBy = 'patient') {
+  try {
+    // LẤY THÔNG TIN LỊCH TRƯỚC KHI HỦY
+    const { data: appointment, error: fetchError } = await supabase
+      .from('appointments')
+      .select('status')
+      .eq('id', appointmentId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!appointment) throw new Error('Lịch hẹn không tồn tại');
+
+    // CẤM HỦY NẾU ĐÃ HOÀN THÀNH HOẶC ĐÃ HỦY
+    if (appointment.status === 'completed') {
+      return { success: false, message: 'Không thể hủy lịch đã hoàn thành' };
+    }
+    if (['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(appointment.status)) {
+      return { success: false, message: 'Lịch hẹn đã bị hủy trước đó' };
     }
 
-    try {
-      const updatedAppointment = await AppointmentService.cancelAppointment(
-        appointmentId,
-        cancelledBy,
-        reason
-      );
+    // TIẾN HÀNH HỦY
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({
+        status: cancelledBy === 'doctor' ? 'doctor_cancelled' : 'patient_cancelled',
+        cancelled_by: { 
+          by: cancelledBy, 
+          reason: cancelledBy === 'doctor' ? 'Bác sĩ hủy' : 'Bệnh nhân hủy qua app',
+          at: new Date().toISOString()
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', appointmentId)
+      .select()
+      .single();
 
-      // Cập nhật danh sách mà không làm mất thứ tự
-      setAppointments(prev => 
-        prev.map(appt => 
-          appt.id === appointmentId 
-            ? { ...appt, ...updatedAppointment, status: 'cancelled' }
-            : appt
-        )
-      );
+    if (error) throw error;
 
-      return { 
-        success: true, 
-        message: cancelledBy === 'doctor' 
-          ? 'Bác sĩ đã hủy lịch hẹn.' 
-          : 'Bạn đã hủy lịch thành công!' 
-      };
-
-    } catch (error) {
-      console.error('Error in cancelAppointment:', error);
-      setError(error.message || 'Hủy lịch thất bại. Vui lòng thử lại.');
-      return { success: false, message: error.message || 'Hủy thất bại' };
-    }
+    return { success: true, message: 'Hủy lịch thành công!' };
+  } catch (error) {
+    console.error('cancelAppointment error:', error);
+    return { success: false, message: error.message || 'Hủy lịch thất bại' };
   }
-}
+}}

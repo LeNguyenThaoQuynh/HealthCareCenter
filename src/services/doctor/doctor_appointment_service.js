@@ -1,129 +1,88 @@
-// src/services/doctor/doctor_appointment_service.js
 import { supabase } from '../../api/supabase';
 
 export const DoctorAppointmentService = {
   async getDoctorId() {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) throw new Error('Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.');
-
-      const { data: doctor, error: doctorError } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (doctorError || !doctor) throw new Error('Tài khoản này không phải bác sĩ.');
-
-      return doctor.id;
-    } catch (err) {
-      console.error('Lỗi lấy ID bác sĩ:', err);
-      throw err;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Chưa đăng nhập');
+    console.log('DOCTOR ID:', user.id);
+    return user.id;
   },
 
   async getAppointmentsByDoctor(doctorId) {
     try {
-      if (!doctorId) throw new Error('ID bác sĩ không hợp lệ.');
-
-      const { data, error } = await supabase
+      const { data: appointments = [] } = await supabase
         .from('appointments')
         .select(`
           id,
           user_id,
+          patient_name,
+          patient_phone,
           appointment_date,
           symptoms,
           status,
-          qr_code,
           created_at,
-          updated_at,
-          patient_name,
-          patient_phone,
-          date,
-          cancelled_by,
-          
-          doctor:user_profiles!appointments_doctor_id_fkey(full_name, phone),
-          
-          patient:user_profiles!appointments_user_id_fkey(id, full_name, phone),
-          
-          department:departments!fk_appointments_department(name, description),
-          
-          slot:doctor_schedule_template!fk_slot_id(start_time, end_time)
+          doctor_schedule_template!inner(start_time, end_time)
         `)
         .eq('doctor_id', doctorId)
-        .order('appointment_date', { ascending: true })
-        .order('created_at', { ascending: false });
+        .order('appointment_date', { ascending: true });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error('Không thể tải lịch khám: ' + error.message);
+      const patientIds = [...new Set(appointments.map(a => a.user_id).filter(Boolean))];
+      let patients = [];
+      if (patientIds.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, avatar_url')
+          .in('id', patientIds);
+        patients = data || [];
       }
 
-      // Chuẩn hóa dữ liệu – đảm bảo 100% có patient.id
-      return (data || []).map(appointment => ({
-        ...appointment,
-        user_id: appointment.user_id || null,
-        patient: appointment.patient ? {
-          id: appointment.patient.id,
-          full_name: appointment.patient.full_name || appointment.patient_name || 'Bệnh nhân',
-          phone: appointment.patient.phone || appointment.patient_phone || ''
-        } : {
-          id: appointment.user_id,
-          full_name: appointment.patient_name || 'Bệnh nhân',
-          phone: appointment.patient_phone || ''
-        },
-        doctor: appointment.doctor || { full_name: 'Bác sĩ', phone: '' },
-        department: appointment.department || { name: 'Phòng khám chung', description: '' },
-        slot: appointment.slot || { start_time: '08:00:00', end_time: '09:00:00' },
-      }));
+      let roomNumber = 'Chưa có phòng';
+      try {
+        const { data: doc } = await supabase
+          .from('doctors')
+          .select('room_number')
+          .eq('id', doctorId)
+          .maybeSingle();
+        if (doc?.room_number) roomNumber = doc.room_number.trim();
+      } catch (e) {}
+
+      let specializationText = 'Chưa xác định chuyên khoa';
+      try {
+        const { data: specs = [] } = await supabase
+          .from('doctor_specializations')
+          .select('specialization')
+          .eq('doctor_id', doctorId);
+        if (specs.length > 0) {
+          specializationText = specs.map(s => s.specialization.trim()).join(' • ');
+        }
+      } catch (e) {}
+
+      // 5. GỘP DỮ LIỆU
+      const result = appointments.map(appt => {
+        const slot = appt.doctor_schedule_template || {};
+        const patientProfile = patients.find(p => p.id === appt.user_id);
+
+        return {
+          ...appt,
+          timeDisplay: slot.start_time && slot.end_time
+            ? `${slot.start_time.slice(0,5)} - ${slot.end_time.slice(0,5)}`
+            : 'Chưa xác định',
+          patient: {
+            full_name: patientProfile?.full_name || appt.patient_name || 'Bệnh nhân',
+            phone: patientProfile?.phone || appt.patient_phone || '',
+            avatar_url: patientProfile?.avatar_url || null,
+          },
+          doctor_room_number: roomNumber,
+          doctor_specialization_text: specializationText,
+        };
+      });
+
+      console.log(`HOÀN TẤT → ${result.length} lịch | Phòng: ${roomNumber} | Chuyên khoa: ${specializationText}`);
+      return result;
+
     } catch (err) {
-      console.error('Lỗi tải lịch khám:', err);
-      throw err;
-    }
-  },
-
-  async confirmAppointment(appointmentId) {
-    try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-        .eq('id', appointmentId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error('Không tìm thấy lịch hẹn');
-
-      return data;
-    } catch (err) {
-      console.error('Lỗi xác nhận:', err);
-      throw err;
-    }
-  },
-
-  async cancelAppointment(appointmentId, cancelledBy = 'doctor', reason = null) {
-    try {
-      const status = cancelledBy === 'doctor' ? 'doctor_cancelled' : 'patient_cancelled';
-      const cancelledByData = reason ? { cancelled_by: cancelledBy, reason } : { cancelled_by: cancelledBy };
-
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({
-          status,
-          cancelled_by: cancelledByData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', appointmentId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error('Không tìm thấy lịch hẹn');
-
-      return data;
-    } catch (err) {
-      console.error('Lỗi hủy lịch:', err);
-      throw err;
+      console.error('Lỗi service:', err);
+      return [];
     }
   },
 };

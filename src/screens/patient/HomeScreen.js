@@ -20,7 +20,6 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const [displayName, setDisplayName] = useState("Bạn");
 
-  // Lấy tên người dùng
   useEffect(() => {
     const fetch = async () => {
       const { data: { user } } = await supabase.auth.getUser();

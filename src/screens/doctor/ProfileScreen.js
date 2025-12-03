@@ -15,66 +15,64 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../../api/supabase";
 import theme from "../../theme/theme";
-// Import các hàm tiện ích nếu cần (như formatters), nhưng giữ lại logic Doctor
-// Ví dụ: import { formatGender, formatDate } from "../../utils/formatters"; 
 
-// --- Theme Imports ---
-const {
-  COLORS,
-  GRADIENTS,
-  SPACING,
-  BORDER_RADIUS,
-  SHADOWS,
-  FONT_SIZE,
-  FONT_WEIGHT,
-} = theme;
-
-// Hàm kiểm tra và lấy hồ sơ bác sĩ
+const { COLORS, GRADIENTS, SPACING, BORDER_RADIUS, SHADOWS } = theme;
 const fetchDoctorProfile = async (userId) => {
-  const { data, error } = await supabase
+  const { data: doctorData, error: doctorError } = await supabase
     .from("doctors")
-    .select(
-      `
-      *,
-      departments!department_id (name) 
-      `
-    )
+    .select(`
+      id,
+      name,
+      avatar_url,
+      specialization,
+      experience_years,
+      room_number,
+      department_name,
+      service_id,
+      services:service_id (
+        id,
+        name,
+        department,
+        price,
+        duration_minutes,
+        service_type
+      )
+    `)
     .eq("id", userId)
     .single();
 
-  if (error) throw error;
-  return data;
+  if (doctorError) throw doctorError;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const email = user?.email || "Chưa có email";
+  const phone = user?.user_metadata?.phone || "Chưa có số điện thoại";
+
+  return {
+    ...doctorData,
+    email,
+    phone,
+  };
 };
 
+/* ============================================================
+   PROFILE SCREEN
+============================================================ */
 export default function ProfileScreen() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [departmentName, setDepartmentName] = useState("Đang tải...");
   const navigation = useNavigation();
 
-  const fetchProfile = async () => {
+  const loadProfile = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("Không tìm thấy người dùng.");
-      }
+      if (!user) throw new Error("Không tìm thấy người dùng");
 
-      // Lấy profile từ bảng doctors
       const data = await fetchDoctorProfile(user.id);
-      
       setProfile(data);
-      setDepartmentName(data.departments?.name || "Chưa xác định");
-
-      // LOG: KIỂM TRA DỮ LIỆU VÀ URL AVATAR
-      console.log("--- DỮ LIỆU PROFILE DOCTOR ĐƯỢC TẢI ---");
-      console.log("Profile Data:", data);
-      const avatarUrl = data.avatar_url;
-      console.log("Avatar URL (Kiểm tra thủ công):", avatarUrl || "Không có URL ảnh");
 
     } catch (err) {
-      console.log("Lỗi tải hồ sơ:", err);
-      Alert.alert("Lỗi", err.message || "Không thể tải hồ sơ bác sĩ.");
+      Alert.alert("Lỗi", err.message || "Không thể tải hồ sơ bác sĩ");
     } finally {
       setLoading(false);
     }
@@ -82,17 +80,15 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchProfile();
-      // Thêm dependency nếu fetchProfile phụ thuộc vào bất cứ state/prop nào khác
+      loadProfile();
     }, [])
   );
-  
-  // --- UI Loading/Error State ---
+
   if (loading) {
     return (
       <View style={s.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ marginTop: 10, color: COLORS.textSecondary }}>Đang tải hồ sơ...</Text>
+        <Text style={s.loadingText}>Đang tải hồ sơ bác sĩ...</Text>
       </View>
     );
   }
@@ -100,212 +96,219 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <View style={s.center}>
-        <Text style={{ color: COLORS.textPrimary }}>Không tìm thấy hồ sơ bác sĩ.</Text>
-        <TouchableOpacity style={s.retryBtn} onPress={fetchProfile}>
-          <Text style={s.editText}>Thử lại</Text>
-        </TouchableOpacity>
+        <Ionicons name="person-outline" size={80} color={COLORS.textLight} />
+        <Text style={s.errorText}>Không tìm thấy hồ sơ bác sĩ</Text>
       </View>
     );
   }
 
-  // --- UI Profile Content ---
   const avatarUri = profile.avatar_url;
-  
+  const service = profile.services;
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <LinearGradient 
-        colors={GRADIENTS.header} 
-        style={{ paddingTop: Platform.OS === 'android' ? 80 : 60, paddingBottom: SPACING.xl }}
+      
+      {/* HEADER */}
+      <LinearGradient
+        colors={GRADIENTS.header}
+        style={{
+          paddingTop: Platform.OS === "android" ? 80 : 60,
+          paddingBottom: SPACING.xxl,
+        }}
       >
+        {/* NÚT BACK */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{
+            position: "absolute",
+            top: Platform.OS === "android" ? 40 : 60,
+            left: 20,
+            zIndex: 50,
+            backgroundColor: "rgba(255,255,255,0.2)",
+            padding: 10,
+            borderRadius: 50,
+          }}
+        >
+          <Ionicons name="arrow-back" size={26} color="#fff" />
+        </TouchableOpacity>
+
         <View style={{ alignItems: "center" }}>
-          {/* Avatar Section */}
+
+          {/* Avatar */}
           <View style={s.avatarContainer}>
             {avatarUri ? (
-              <Image 
-                source={{ uri: avatarUri }} 
-                style={s.avatar} 
-                // LOG: BẮT LỖI KHI REACT NATIVE KHÔNG TẢI ĐƯỢC ẢNH
-                onError={(e) => {
-                    console.log("--- LỖI TẢI ẢNH (Image Component Error) ---");
-                    console.log("URL:", avatarUri);
-                    console.log("Lỗi chi tiết:", e.nativeEvent.error);
-                }}
-              />
+              <Image source={{ uri: avatarUri }} style={s.avatar} resizeMode="cover" />
             ) : (
               <View style={s.defaultAvatar}>
-                <Ionicons name="person" size={56} color="#fff" />
+                <Ionicons name="person" size={60} color="#fff" />
               </View>
             )}
           </View>
 
-          <Text style={s.nameHeader}>
-            BS. {profile.name || "Bác sĩ"}
-          </Text>
-          <Text style={s.specializationHeader}>
-            {profile.specialization || "Chuyên khoa chưa cập nhật"}
-          </Text>
+          <Text style={s.doctorName}>BS. {profile.name}</Text>
+          <Text style={s.specialization}>{profile.specialization || "Chưa cập nhật"}</Text>
+
+          {profile.department_name && (
+            <Text style={s.department}>{profile.department_name}</Text>
+          )}
         </View>
       </LinearGradient>
 
-      <View style={s.contentContainer}>
-        {/* Thông tin chuyên môn Card */}
+      {/* BODY */}
+      <View style={s.content}>
+
+        {/* CHUYÊN MÔN */}
         <View style={s.card}>
-          <Text style={s.title}>Thông tin chuyên môn</Text>
+          <Text style={s.cardTitle}>Thông tin chuyên môn</Text>
 
-          <InfoRow icon="business-outline" label="Khoa" value={departmentName} />
-          <InfoRow icon="medkit-outline" label="Chuyên môn" value={profile.specialization} />
-          <InfoRow icon="time-outline" label="Kinh nghiệm" value={profile.experience_years ? `${profile.experience_years} năm` : null} />
-          <InfoRow icon="home-outline" label="Phòng khám" value={profile.room_number} />
+          <InfoRow icon="medkit" label="Chuyên khoa" value={profile.specialization} />
+          <InfoRow icon="briefcase" label="Kinh nghiệm" value={`${profile.experience_years || 0} năm`} />
+          <InfoRow icon="business" label="Phòng khám" value={profile.room_number || "Chưa có phòng"} />
+
+          {/* SERVICE NAME */}
+          <InfoRow icon="apps" label="Dịch vụ" value={service?.name || "Chưa có dịch vụ"} />
+          <InfoRow icon="pricetag" label="Giá dịch vụ" value={service?.price ? `${service.price} VND` : "Không có"} />
+
+          {profile.bio && (
+            <View style={s.bioContainer}>
+              <Text style={s.bioLabel}>Giới thiệu</Text>
+              <Text style={s.bio}>{profile.bio}</Text>
+            </View>
+          )}
         </View>
-        
-        {/* Thông tin liên hệ cơ bản (Dựa trên Patient Profile) */}
+
+        {/* LIÊN HỆ */}
         <View style={s.card}>
-            <Text style={s.title}>Thông tin liên hệ</Text>
-            <InfoRow icon="mail-outline" label="Email" value={profile.email} /> 
-            {/* Giả định cột 'email' và 'phone' tồn tại hoặc được join vào Doctors */}
-            {profile.phone && <InfoRow icon="call-outline" label="Điện thoại" value={profile.phone} />}
+          <Text style={s.cardTitle}>Thông tin liên hệ</Text>
+          <InfoRow icon="mail" label="Email" value={profile.email} />
+          <InfoRow icon="call" label="Điện thoại" value={profile.phone} />
         </View>
 
-
-        {/* Nút chỉnh sửa */}
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('EditDoctorProfile')} 
+        {/* EDIT */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate("EditDoctorProfile")}
           style={s.editBtn}
         >
-            <LinearGradient colors={GRADIENTS.primaryButton} style={s.editGradient}>
-                <Ionicons name="create-outline" size={22} color="#FFF" />
-                <Text style={s.editText}>Chỉnh sửa hồ sơ</Text>
-            </LinearGradient>
+          <LinearGradient colors={GRADIENTS.primaryButton} style={s.editGradient}>
+            <Ionicons name="create" size={24} color="#FFF" />
+            <Text style={s.editText}>Chỉnh sửa hồ sơ</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.logoutBtn} onPress={() => Alert.alert("Chưa cài đặt", "Chức năng đăng xuất chưa được thêm vào phiên bản này.")}>
+        {/* LOGOUT */}
+        <TouchableOpacity
+          style={s.logoutBtn}
+          onPress={() => {
+            Alert.alert("Đăng xuất", "Bạn chắc chắn muốn đăng xuất?", [
+              { text: "Hủy", style: "cancel" },
+              {
+                text: "Đăng xuất",
+                style: "destructive",
+                onPress: async () => {
+                  await supabase.auth.signOut();
+                  navigation.replace("Login");
+                },
+              },
+            ]);
+          }}
+        >
           <LinearGradient colors={["#DC2626", "#EF4444"]} style={s.logoutGradient}>
-            <Ionicons name="log-out-outline" size={24} color="#FFF" />
+            <Ionicons name="log-out" size={26} color="#FFF" />
             <Text style={s.logoutText}>Đăng xuất</Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <View style={{ height: SPACING.xxxl }} />
+        <View style={{ height: 50 }} />
       </View>
     </ScrollView>
   );
 }
 
-// --- Component InfoRow Tương tự Patient Profile ---
+/* ============================================================
+   COMPONENT: ROW ITEM
+============================================================ */
 const InfoRow = ({ icon, label, value }) => (
   <View style={s.infoRow}>
-    <Ionicons name={icon} size={26} color={COLORS.primary} />
+    <Ionicons name={icon} size={28} color={COLORS.primary} />
     <View style={s.infoText}>
       <Text style={s.label}>{label}</Text>
-      <Text style={s.value}>{value || "—"}</Text>
+      <Text style={s.value}>{value}</Text>
     </View>
   </View>
 );
 
-// --- Stylesheet ---
+/* ============================================================
+   STYLE
+============================================================ */
 const s = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background },
+  loadingText: { marginTop: 16, fontSize: 17, color: COLORS.textSecondary },
+  errorText: { marginTop: 16, fontSize: 18, color: COLORS.textPrimary },
+
   avatarContainer: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: '#fff',
-    padding: 4,
-    ...SHADOWS.medium,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "#fff",
+    padding: 6,
+    ...SHADOWS.large,
   },
-  avatar: { width: '100%', height: '100%', borderRadius: 51 },
-  defaultAvatar: { 
-    flex: 1, 
-    backgroundColor: COLORS.primary + '60', 
-    borderRadius: 51, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  avatar: { width: "100%", height: "100%", borderRadius: 59 },
+  defaultAvatar: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 59,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  nameHeader: { 
-    fontSize: FONT_SIZE.xxl, 
-    fontWeight: '800', 
-    color: '#fff', 
-    marginTop: 16 
+
+  doctorName: { fontSize: 32, fontWeight: "900", color: "#fff", marginTop: 20 },
+  specialization: { fontSize: 20, color: "#fff", marginTop: 6, fontWeight: "600" },
+  department: { fontSize: 17, color: "#fff", marginTop: 4 },
+
+  content: { marginTop: -40, paddingHorizontal: SPACING.xl },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+    ...SHADOWS.card,
   },
-  specializationHeader: { 
-    fontSize: FONT_SIZE.lg, 
-    color: '#fff', 
-    opacity: 0.9, 
-    marginTop: 4 
+
+  cardTitle: { fontSize: 20, fontWeight: "800", marginBottom: SPACING.lg },
+
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9",
   },
-  contentContainer: { marginTop: -30, paddingHorizontal: SPACING.xl },
-  card: { 
-    backgroundColor: COLORS.surface, 
-    borderRadius: BORDER_RADIUS.xl, 
-    padding: SPACING.xl, 
-    marginBottom: SPACING.xl, 
-    ...SHADOWS.card 
-  },
-  title: { 
-    fontSize: FONT_SIZE.lg, 
-    fontWeight: '800', 
-    color: COLORS.textPrimary, 
-    marginBottom: SPACING.md 
-  },
-  infoRow: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    paddingVertical: SPACING.sm 
-  },
-  infoText: { 
-    marginLeft: SPACING.xl, 
-    flex: 1 
-  },
-  label: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textLight 
-  },
-  value: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: '600', 
-    color: COLORS.textPrimary, 
-    marginTop: 4 
-  },
-  editBtn: { 
-    marginTop: SPACING.lg 
-  },
+  infoText: { marginLeft: SPACING.xl, flex: 1 },
+  label: { fontSize: 15, color: COLORS.textLight },
+  value: { fontSize: 17, fontWeight: "600", color: COLORS.textPrimary },
+
+  bioContainer: { marginTop: SPACING.lg, paddingTop: SPACING.lg, borderTopWidth: 1, borderColor: "#F1F5F9" },
+  bioLabel: { fontSize: 15, color: COLORS.textLight },
+  bio: { fontSize: 16, color: COLORS.textPrimary, lineHeight: 24 },
+
+  editBtn: { marginTop: SPACING.xl },
   editGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: BORDER_RADIUS.lg,
-    gap: 10,
+    paddingVertical: 18,
+    borderRadius: BORDER_RADIUS.xl,
   },
-  editText: { 
-    fontSize: 17, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: "#FFF" 
-  },
-  logoutBtn: { 
-    marginTop: SPACING.xl 
-  },
+  editText: { fontSize: 18, fontWeight: "bold", color: "#FFF" },
+
+  logoutBtn: { marginTop: SPACING.lg },
   logoutGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: BORDER_RADIUS.lg,
-    gap: 12,
+    paddingVertical: 18,
+    borderRadius: BORDER_RADIUS.xl,
   },
-  logoutText: { 
-    fontSize: 18, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: "#FFF" 
-  },
-  // Các styles bổ sung
-  retryBtn: { 
-    marginTop: SPACING.md, 
-    paddingVertical: 8, 
-    paddingHorizontal: 20, 
-    backgroundColor: COLORS.surface, 
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.primary
-  }
+  logoutText: { fontSize: 18, fontWeight: "bold", color: "#FFF" },
 });

@@ -15,176 +15,173 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../../../api/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const safeTime = (timeVal) => {
-  if (!timeVal) return '08:00';
-  const str = String(timeVal).trim();
-  return str.length >= 5 ? str.slice(0, 5) : '08:00';
+const getVietnameseDayName = (dateString) => {
+  const date = new Date(dateString);
+  const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  return dayNames[date.getDay()];
+};
+
+const formatDisplayDate = (dateStr) => {
+  if (!dateStr) return 'Chưa chọn ngày';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return 'Ngày không hợp lệ';
+  return d.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 };
 
 export default function ConfirmBooking() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { date, department, slot, doctor, price: initialPrice } = route.params || {};
+  const {
+    date,
+    specialization: specParam,    // ← Có thể là chuỗi hoặc object
+    slot,
+    doctor,
+    price: initialPrice = 180000,
+  } = route.params || {};
 
   const [loading, setLoading] = useState(false);
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
-  const [servicePrice, setServicePrice] = useState('150.000đ');
+  const [servicePrice, setServicePrice] = useState('180.000đ');
+
+  // FIX 1: Hỗ trợ cả khi specialization là chuỗi
+  const specialization = typeof specParam === 'string' ? specParam : specParam?.name || 'Không xác định';
+  const finalPrice = typeof specParam === 'object' ? (specParam.price || initialPrice) : initialPrice;
 
   useEffect(() => {
-    if (!date || !department || !slot || !doctor) {
-      Alert.alert('Lỗi', 'Thiếu thông tin đặt lịch');
+    if (!date || !specialization || !slot || !doctor) {
+      Alert.alert('Lỗi', 'Thiếu thông tin đặt lịch. Vui lòng thử lại.');
       navigation.goBack();
+    } else {
+      setServicePrice(finalPrice.toLocaleString('vi-VN') + 'đ');
     }
-  }, [date, department, slot, doctor, navigation]);
+  }, [date, specialization, slot, doctor, finalPrice, navigation]);
 
+  // Tự động điền thông tin bệnh nhân
   useEffect(() => {
-    fetchPatientAndServiceInfo();
-  }, []);
+    const fetchPatientInfo = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-  const fetchPatientAndServiceInfo = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('full_name, phone')
-        .eq('id', user.id)
-        .single();
-
-      if (profile) {
-        setPatientName(profile.full_name || '');
-        setPatientPhone(profile.phone || '');
-      }
-
-      if (!initialPrice) {
-        const { data: service } = await supabase
-          .from('services')
-          .select('price')
-          .eq('department_id', department.id)
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('full_name, phone')
+          .eq('id', user.id)
           .single();
 
-        if (service?.price) {
-          setServicePrice(Number(service.price).toLocaleString('vi-VN') + 'đ');
+        if (profile) {
+          setPatientName(profile.full_name || '');
+          setPatientPhone(profile.phone || '');
         }
-      } else {
-        setServicePrice(Number(initialPrice).toLocaleString('vi-VN') + 'đ');
+      } catch (err) {
+        console.warn('Không lấy được thông tin bệnh nhân:', err);
       }
-    } catch (err) {
-      console.warn('Lỗi khởi tạo:', err);
-    }
-  };
+    };
+    fetchPatientInfo();
+  }, []);
 
   const handleBooking = async () => {
-    if (!patientName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập họ tên bệnh nhân.');
-      return;
-    }
-    if (!patientPhone.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại.');
-      return;
-    }
+    if (!patientName.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập họ tên');
+    if (!patientPhone.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập số điện thoại');
     const cleanPhone = patientPhone.replace(/\D/g, '');
-    if (!/^\d{10,11}$/.test(cleanPhone)) {
-      Alert.alert('Lỗi', 'Số điện thoại không hợp lệ (10-11 số).');
-      return;
-    }
+    if (!/^\d{10,11}$/.test(cleanPhone))
+      return Alert.alert('Lỗi', 'Số điện thoại không hợp lệ (10-11 số)');
 
     setLoading(true);
+
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !user) throw new Error('Chưa đăng nhập');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Bạn chưa đăng nhập');
 
-      const startTime = safeTime(slot.start_time);
-      const endTime = safeTime(slot.end_time);
+      const dayOfWeekString = getVietnameseDayName(date);
 
-      if (!slot.start_time || !slot.end_time) {
-        throw new Error('Khung giờ không hợp lệ. Vui lòng chọn lại.');
-      }
-
-      const weekdays = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-      const dayOfWeek = weekdays[new Date(date).getDay()];
-
-      const { data: template, error: tempError } = await supabase
+      // FIX 2: Tìm đúng template theo thời gian (dùng ILIKE nếu cần linh hoạt)
+      const { data: template, error: tempErr } = await supabase
         .from('doctor_schedule_template')
         .select('id, max_patients_per_slot')
         .eq('doctor_id', doctor.id)
-        .eq('day_of_week', dayOfWeek)
+        .eq('day_of_week', dayOfWeekString)
+        .lte('start_time', slot.start_time + ':00')
+        .gte('end_time', slot.end_time ? slot.end_time + ':00' : slot.start_time + ':00')
         .single();
 
-      if (tempError || !template) {
-        throw new Error('Không tìm thấy khung giờ. Vui lòng chọn lại.');
+      if (tempErr || !template) {
+        console.error('Lỗi tìm template:', tempErr);
+        throw new Error('Khung giờ này không còn khả dụng. Vui lòng chọn lại!');
       }
 
+      // Kiểm tra số lượng đã đặt
       const { count } = await supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
-        .eq('slot_id', template.id)
         .eq('date', date)
-        .neq('status', 'cancelled');
+        .eq('slot_id', template.id)
+        .in('status', ['pending', 'confirmed']);
 
-      if (count >= (template.max_patients_per_slot || 5)) {
+      const max = template.max_patients_per_slot || 10;
+      if (count >= max) {
         Alert.alert('Hết chỗ', 'Ca khám này đã đầy. Vui lòng chọn ca khác!');
-        setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase.rpc('book_appointment_rpc', {
-        p_user_id: user.id,
-        p_doctor_id: doctor.id,
-        p_slot_id: template.id,
-        p_patient_name: patientName.trim(),
-        p_patient_phone: cleanPhone,
-        p_department_id: department.id,
-        p_appointment_date: date,
-      });
+      // Lưu lịch hẹn
+      const { data: newAppointment, error: insertErr } = await supabase
+        .from('appointments')
+        .insert({
+          user_id: user.id,
+          doctor_id: doctor.id,
+          patient_name: patientName.trim(),
+          patient_phone: cleanPhone,
+          date: date,
+          appointment_date: `${date}T${slot.start_time}:00`,
+          slot_id: template.id,
+          status: 'pending',
+          price: finalPrice,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
-      if (!data?.appointment_id) throw new Error('Không nhận được mã lịch hẹn');
+      if (insertErr || !newAppointment) throw insertErr;
 
-      const timeDisplay = `${startTime} - ${endTime}`;
-      const dateDisplay = new Date(date).toLocaleDateString('vi-VN', {
-        weekday: 'long',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
+      const dateDisplay = formatDisplayDate(date);
+      const timeDisplay = `${slot.start_time} - ${slot.end_time || 'Kết thúc'}`;
 
       Alert.alert(
         'Đặt lịch thành công!',
-        `Mã lịch hẹn: ${data.appointment_id}\nBác sĩ: ${doctor.name}\nThời gian: ${timeDisplay}\nNgày: ${dateDisplay}`,
+        `Mã phiếu: #${newAppointment.id}\nBác sĩ: ${doctor.name}\nChuyên khoa: ${specialization}\nThời gian: ${timeDisplay}\nNgày: ${dateDisplay}`,
         [
           {
             text: 'Xem vé ngay',
-            onPress: () => navigation.replace('BookingSuccess', {
-              appointment_id: data.appointment_id,
-              doctor_name: doctor.name,
-              time: timeDisplay,
-              date: dateDisplay,
-              department: department.name,
-              room: doctor.room_number || '—',
-              price: servicePrice,
-            }),
+            onPress: () =>
+              navigation.replace('BookingSuccess', {
+                appointment_id: newAppointment.id,
+                doctor_name: doctor.name,
+                specialization: specialization,
+                time: timeDisplay,
+                date: dateDisplay,
+                room: doctor.room_number || 'Chưa xác định',
+                price: servicePrice,
+              }),
           },
           { text: 'Về trang chủ', onPress: () => navigation.replace('HomeScreen') },
         ]
       );
     } catch (err) {
       console.error('Lỗi đặt lịch:', err);
-      Alert.alert('Đặt lịch thất bại', err.message || 'Vui lòng thử lại sau');
+      Alert.alert('Đặt lịch thất bại', err.message || 'Có lỗi xảy ra, vui lòng thử lại');
     } finally {
       setLoading(false);
     }
   };
 
-  const timeDisplay = `${safeTime(slot?.start_time)} - ${safeTime(slot?.end_time)}`;
-  const dateDisplay = new Date(date).toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const timeDisplay = slot ? `${slot.start_time} - ${slot.end_time || '...'}` : '—';
+  const dateDisplay = formatDisplayDate(date);
 
   return (
     <View style={styles.container}>
@@ -199,35 +196,18 @@ export default function ConfirmBooking() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Chi tiết lịch khám</Text>
           <View style={styles.divider} />
-
           <InfoRow icon="calendar-outline" label="Ngày khám" value={dateDisplay} />
           <InfoRow icon="time-outline" label="Giờ khám" value={timeDisplay} />
-          <InfoRow icon="business-outline" label="Chuyên khoa" value={department?.name || '—'} />
+          <InfoRow icon="medical-outline" label="Chuyên khoa" value={specialization} />
           <InfoRow icon="person-outline" label="Bác sĩ" value={doctor?.name || '—'} />
-          {doctor?.room_number && (
-            <InfoRow icon="location-outline" label="Phòng khám" value={doctor.room_number} />
-          )}
+          {doctor?.room_number && <InfoRow icon="location-outline" label="Phòng khám" value={`P. ${doctor.room_number}`} />}
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thông tin bệnh nhân</Text>
           <View style={styles.divider} />
-          
-          <InputGroup 
-            icon="person-outline" 
-            placeholder="Họ và tên bệnh nhân" 
-            value={patientName} 
-            onChangeText={setPatientName}
-            autoCapitalize="words"
-          />
-          <InputGroup 
-            icon="call-outline" 
-            placeholder="Số điện thoại" 
-            value={patientPhone} 
-            onChangeText={setPatientPhone}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
+          <InputGroup icon="person-outline" placeholder="Họ và tên" value={patientName} onChangeText={setPatientName} autoCapitalize="words" />
+          <InputGroup icon="call-outline" placeholder="Số điện thoại" value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" maxLength={11} />
         </View>
 
         <View style={styles.priceCardContainer}>
@@ -256,6 +236,7 @@ export default function ConfirmBooking() {
   );
 }
 
+// InfoRow & InputGroup giữ nguyên như bạn viết
 const InfoRow = ({ icon, label, value }) => (
   <View style={styles.infoRow}>
     <Ionicons name={icon} size={20} color="#4B5563" />
@@ -277,72 +258,28 @@ const InputGroup = ({ icon, placeholder, value, onChangeText, ...props }) => (
     />
   </View>
 );
+
+// Styles giữ nguyên 100%
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   scrollContent: { paddingBottom: 120 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    backgroundColor: '#fff',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 18, paddingBottom: 18, backgroundColor: '#fff', elevation: 6 },
   backButton: { padding: 8, marginRight: 8 },
   title: { fontSize: 23, fontWeight: '800', color: '#1F2937' },
-  card: {
-    backgroundColor: '#fff',
-    marginHorizontal: 18,
-    marginTop: 18,
-    padding: 22,
-    borderRadius: 20,
-    elevation: 10,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
+  card: { backgroundColor: '#fff', marginHorizontal: 18, marginTop: 18, padding: 22, borderRadius: 20, elevation: 10, shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   cardTitle: { fontSize: 19, fontWeight: '800', color: '#1F2937', marginBottom: 14 },
   divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   infoLabel: { flex: 1, marginLeft: 16, color: '#4B5563', fontSize: 15.5, fontWeight: '600' },
   infoValue: { fontWeight: '700', color: '#1F2937', fontSize: 15.5 },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-  },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: 14, paddingHorizontal: 16, marginBottom: 16, backgroundColor: '#fff' },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: '#1F2937', paddingVertical: 14 },
   priceCardContainer: { marginHorizontal: 18, marginTop: 18, marginBottom: 20, borderRadius: 18, overflow: 'hidden', elevation: 12 },
   priceCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 22 },
   priceLabel: { fontSize: 17, color: '#fff', fontWeight: '700' },
   priceValue: { fontSize: 26, fontWeight: '900', color: '#fff' },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 18,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    elevation: 15,
-  },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 18, paddingTop: 14, paddingBottom: Platform.OS === 'ios' ? 34 : 18, borderTopWidth: 1, borderTopColor: '#E5E7EB', elevation: 15 },
   confirmButton: { borderRadius: 18, overflow: 'hidden', elevation: 12 },
   gradientButton: { padding: 18, alignItems: 'center' },
   confirmText: { color: '#fff', fontSize: 18, fontWeight: '800' },

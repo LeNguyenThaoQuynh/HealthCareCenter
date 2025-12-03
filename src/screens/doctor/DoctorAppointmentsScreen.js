@@ -1,6 +1,4 @@
-// src/screens/doctor/DoctorAppointmentsScreen.js
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,22 +16,38 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { DoctorAppointmentController } from '../../controllers/doctor/doctor_appointment_controller';
 import { supabase } from '../../api/supabase';
 
-// Theme & Styles
-import { theme } from '../../theme/theme';
-import { DoctorAppointmentsStyles as styles } from '../../styles/doctor/DoctorAppointmentsStyles';
+import {
+  COLORS,
+  GRADIENTS,
+} from '../../theme/theme';
 
-const { COLORS, GRADIENTS } = theme;
+import { DoctorAppointmentsStyles as styles } from '../../styles/doctor/DoctorAppointmentsStyles';
 
 const TABS = [
   { key: 'today', title: 'Hôm nay' },
   { key: 'pending', title: 'Chờ xác nhận' },
   { key: 'confirmed', title: 'Đã xác nhận' },
+  { key: 'waiting_results', title: 'Chờ kết quả' },
   { key: 'completed', title: 'Đã khám xong' },
   { key: 'cancelled', title: 'Đã hủy' },
 ];
 
+const TabButton = ({ tab, activeTab, setActiveTab }) => {
+  const isActive = activeTab === tab.key;
+  return (
+    <TouchableOpacity
+      onPress={() => setActiveTab(tab.key)}
+      style={styles.tabButton(isActive)}
+    >
+      <Text style={styles.tabText(isActive)}>{tab.title}</Text>
+    </TouchableOpacity>
+  );
+};
+
 export default function DoctorAppointmentsScreen() {
   const navigation = useNavigation();
+  const flatListRef = useRef(null);
+
   const [appointments, setAppointments] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [activeTab, setActiveTab] = useState('today');
@@ -44,7 +58,7 @@ export default function DoctorAppointmentsScreen() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const loadAppointments = async (isRefresh = false) => {
+  const loadAppointments = useCallback(async (isRefresh = false) => {
     if (!isRefresh) {
       setLoading(true);
       setError(null);
@@ -53,24 +67,24 @@ export default function DoctorAppointmentsScreen() {
 
     await DoctorAppointmentController.loadAppointments({
       setAppointments,
-      setLoading,
-      onError: (msg) => setError(msg),
+      onError: setError,
       showAlert: !isRefresh,
     });
 
     setRefreshing(false);
-  };
+    if (!isRefresh) setLoading(false);
+  }, []);
 
   useEffect(() => {
     loadAppointments();
-  }, []);
+  }, [loadAppointments]);
 
   useFocusEffect(
     useCallback(() => {
-      if (['today', 'pending', 'confirmed'].includes(activeTab)) {
+      if (['today', 'pending', 'confirmed', 'waiting_results'].includes(activeTab)) {
         loadAppointments();
       }
-    }, [activeTab])
+    }, [activeTab, loadAppointments])
   );
 
   useEffect(() => {
@@ -79,22 +93,15 @@ export default function DoctorAppointmentsScreen() {
     switch (activeTab) {
       case 'today':
         result = appointments.filter(app => {
-          const dateStr = app.appointment_date || app.date;
-          if (!dateStr) return false;
-          const appDate = new Date(dateStr);
-          const d = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
-          return d.getTime() === today.getTime();
+          const d = new Date(app.appointment_date || app.date || 0);
+          const appDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          return appDay.getTime() === today.getTime();
         });
         break;
-      case 'pending':
-        result = appointments.filter(a => a.status === 'pending');
-        break;
-      case 'confirmed':
-        result = appointments.filter(a => a.status === 'confirmed');
-        break;
-      case 'completed':
-        result = appointments.filter(a => a.status === 'completed');
-        break;
+      case 'pending': result = appointments.filter(a => a.status === 'pending'); break;
+      case 'confirmed': result = appointments.filter(a => a.status === 'confirmed'); break;
+      case 'waiting_results': result = appointments.filter(a => a.status === 'waiting_results'); break;
+      case 'completed': result = appointments.filter(a => a.status === 'completed'); break;
       case 'cancelled':
         result = appointments.filter(a =>
           ['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(a.status)
@@ -102,194 +109,262 @@ export default function DoctorAppointmentsScreen() {
         break;
     }
 
-    result.sort((a, b) => {
-      const dateA = new Date(a.appointment_date || a.date || 0);
-      const dateB = new Date(b.appointment_date || b.date || 0);
-      return dateA - dateB;
-    });
-
+    result.sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date));
     setFiltered(result);
   }, [appointments, activeTab]);
 
-  const onRefresh = useCallback(() => loadAppointments(true), []);
-
-  const startExamination = (item) => {
-    if (item.status === 'completed') {
-      Alert.alert('Đã khám xong', 'Bạn muốn xem lại bệnh án?', [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xem bệnh án', onPress: () => navigation.navigate('ViewMedicalRecord', { appointmentId: item.id }) },
-      ]);
-      return;
+  const checkTestResults = async (appointmentId) => {
+    try {
+      const { data } = await supabase
+        .from('test_results')
+        .select('status')
+        .eq('appointment_id', appointmentId);
+      if (!data || data.length === 0) return false;
+      return data.every(t => !['pending', 'in_progress'].includes(t.status));
+    } catch {
+      return false;
     }
-
-    const patientId = item.user_id || item.patient?.id;
-    if (!patientId) {
-      Alert.alert('Lỗi', 'Không thể xác định bệnh nhân. Vui lòng tải lại.');
-      return;
-    }
-
-    navigation.navigate('CreateMedicalRecord', {
-      appointmentId: item.id,
-      patientId,
-      patientName: item.patient?.full_name || item.patient_name || 'Bệnh nhân',
-      department: item.department?.name || 'Phòng khám chung',
-    });
   };
 
-  const getStatusGradient = (status) => ({
-    pending: [COLORS.warning, '#f39c12'],
-    confirmed: [COLORS.success, '#2ecc71'],
-    completed: [COLORS.primary, COLORS.primaryLight],
-    patient_cancelled: [COLORS.danger, '#e74c3c'],
-    doctor_cancelled: [COLORS.accentPurple, COLORS.accentIndigo],
-    cancelled: [COLORS.danger, '#e74c3c'],
-  })[status] || [COLORS.disabled, COLORS.textLight];
+  const onRefresh = useCallback(() => loadAppointments(true), [loadAppointments]);
+
+  const startExamination = (item) => {
+    const patientId = item.user_id || item.patient?.id;
+    const patientName = item.patient?.full_name || item.patient_name || 'Bệnh nhân';
+    const apptDate = new Date(item.appointment_date || item.date);
+    const isToday = new Date(apptDate.getFullYear(), apptDate.getMonth(), apptDate.getDate()).getTime() === today.getTime();
+
+    if (item.status === 'pending') {
+      Alert.alert(
+        'Xác nhận lịch hẹn',
+        `Bệnh nhân: ${patientName}\nThời gian: ${apptDate.toLocaleString('vi-VN')}`,
+        [
+          {
+            text: 'Hủy lịch',
+            style: 'destructive',
+            onPress: async () => {
+              const { error } = await supabase
+                .from('appointments')
+                .update({ status: 'doctor_cancelled' })
+                .eq('id', item.id);
+              if (!error) {
+                Alert.alert('Đã hủy', 'Lịch đã được hủy');
+                loadAppointments();
+              }
+            },
+          },
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Xác nhận khám',
+            onPress: async () => {
+              try {
+                const { error } = await supabase
+                  .from('appointments')
+                  .update({ status: 'confirmed' })
+                  .eq('id', item.id);
+
+                if (error) throw error;
+
+                Alert.alert('Thành công!', 'Lịch hẹn đã được xác nhận', [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setActiveTab('confirmed');
+                      loadAppointments();
+
+                      setTimeout(() => {
+                        const idx = filtered.findIndex(a => a.id === item.id);
+                        if (idx !== -1 && flatListRef.current) {
+                          flatListRef.current.scrollToIndex({
+                            index: idx,
+                            animated: true,
+                            viewPosition: 0,
+                          });
+                        }
+                      }, 700);
+                    },
+                  },
+                ]);
+              } catch {
+                Alert.alert('Lỗi', 'Không thể xác nhận');
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    if (item.status === 'confirmed' && isToday) {
+      navigation.navigate('OrderTests', {
+        appointmentId: item.id,
+        patientId,
+        patientName,
+      });
+      return;
+    }
+
+    if (item.status === 'confirmed' && !isToday) {
+      Alert.alert('Chưa đến ngày', 'Lịch này chỉ xử lý vào đúng ngày khám.');
+      return;
+    }
+
+    if (item.status === 'waiting_results' && isToday) {
+      checkTestResults(item.id).then(hasAllResults => {
+        if (!hasAllResults) {
+          return Alert.alert('Chưa đủ kết quả', 'Vui lòng đợi tất cả xét nghiệm có kết quả.');
+        }
+        navigation.navigate('FinalizeRecord', {
+          appointmentId: item.id,
+          patientId,
+          patientName,
+        });
+      });
+      return;
+    }
+
+    if (item.status === 'completed') {
+      navigation.navigate('ViewMedicalRecord', { appointmentId: item.id });
+    }
+  };
+
+  const getStatusGradient = (status) => {
+    switch (status) {
+      case 'pending': return ["#FF9F0A", "#FFB84D"];
+      case 'confirmed': return GRADIENTS.appointmentCard || ["#3B82F6", "#1D4ED8"];
+      case 'waiting_results': return ["#FDB813", "#F59E0B"];
+      case 'completed': return GRADIENTS.successButton || ["#10B981", "#059669"];
+      case 'cancelled':
+      case 'patient_cancelled':
+      case 'doctor_cancelled': return ["#EF4444", "#DC2626"];
+      default: return ["#94A3B8", "#64748B"];
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    const map = {
+      pending: 'CHỜ XÁC NHẬN',
+      confirmed: 'SẴN SÀNG KHÁM',
+      waiting_results: 'CHỜ KẾT QUẢ',
+      completed: 'ĐÃ HOÀN TẤT',
+      patient_cancelled: 'BN HỦY',
+      doctor_cancelled: 'BS HỦY',
+      cancelled: 'ĐÃ HỦY',
+    };
+    return map[status] || 'KHÁC';
+  };
 
   const renderItem = ({ item }) => {
-    const name = item.patient?.full_name || item.patient_name || 'Bệnh nhân';
-    const dept = item.department?.name || 'Phòng khám chung';
+    const patientName = item.patient?.full_name || item.patient_name || 'Bệnh nhân';
+    const roomNumber = item.doctor_room_number || 'Chưa có phòng';
+    const specialization = item.doctor_specialization_text || 'Chưa xác định';
+
     const date = new Date(item.appointment_date || item.date);
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    const isPending = item.status === 'pending';
-    const canStart = item.status === 'confirmed';
-    const isCompleted = item.status === 'completed';
     const [g1, g2] = getStatusGradient(item.status);
+    const statusLabel = getStatusLabel(item.status);
+    const isToday = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() === today.getTime();
 
-    const confirmAppointment = async () => {
-      Alert.alert('Xác nhận lịch', 'Xác nhận lịch khám này?', [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xác nhận',
-          onPress: async () => {
-            const { error } = await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', item.id);
-            if (error) Alert.alert('Lỗi', error.message);
-            else {
-              Alert.alert('Thành công', 'Đã xác nhận lịch khám!');
-              loadAppointments();
-            }
-          },
-        },
-      ]);
-    };
+    let mainText = '';
+    let mainIcon = '';
+    let mainColors = ["#94A3B8", "#64748B"];
+    let showMain = true;
 
-    const cancelAppointment = async () => {
-      Alert.alert('Hủy lịch', 'Bạn chắc chắn muốn hủy?', [
-        { text: 'Không', style: 'cancel' },
-        {
-          text: 'Hủy lịch',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('appointments').update({ status: 'doctor_cancelled' }).eq('id', item.id);
-            if (error) Alert.alert('Lỗi', error.message);
-            else {
-              Alert.alert('Đã hủy', 'Lịch khám đã được hủy');
-              loadAppointments();
-            }
-          },
-        },
-      ]);
-    };
+    if (item.status === 'pending') {
+      mainText = 'XÁC NHẬN / HỦY LỊCH';
+      mainIcon = 'checkmark-circle-outline';
+      mainColors = ["#F59E0B", "#FDB813"];
+    } else if (item.status === 'confirmed') {
+      mainText = isToday ? 'CHỈ ĐỊNH XÉT NGHIỆM' : 'CHỜ NGÀY KHÁM';
+      mainIcon = isToday ? 'flask-outline' : 'calendar-outline';
+      mainColors = isToday ? (GRADIENTS.primaryButton || ["#3B82F6", "#1D4ED8"]) : ["#94A3B8", "#64748B"];
+      showMain = isToday;
+    } else if (item.status === 'waiting_results') {
+      mainText = 'HOÀN TẤT BỆNH ÁN';
+      mainIcon = 'document-text-outline';
+      mainColors = GRADIENTS.successButton || ["#10B981", "#059669"];
+    } else if (item.status === 'completed') {
+      mainText = 'XEM LẠI BỆNH ÁN';
+      mainIcon = 'eye-outline';
+      mainColors = ["#E5E7EB", "#F2F4F8"];
+    } else {
+      showMain = false;
+    }
 
     return (
       <View style={styles.itemWrapper}>
         <View style={styles.itemCard}>
           <View style={styles.cardContent}>
-            {/* Tên bệnh nhân + Trạng thái */}
             <View style={styles.itemHeader}>
-              <Text style={styles.patientName}>{name}</Text>
+              <Text style={styles.patientName}>{patientName}</Text>
               <LinearGradient colors={[g1, g2]} style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {isPending && 'CHỜ XÁC NHẬN'}
-                  {item.status === 'confirmed' && 'ĐÃ XÁC NHẬN'}
-                  {item.status === 'completed' && 'ĐÃ KHÁM XONG'}
-                  {['cancelled', 'patient_cancelled', 'doctor_cancelled'].includes(item.status) && 'ĐÃ HỦY'}
-                </Text>
+                <Text style={styles.statusText}>{statusLabel}</Text>
               </LinearGradient>
             </View>
 
-            {/* Khoa */}
             <View style={styles.infoRow}>
-              <View style={styles.iconWrapper}>
-                <Icon name="business" size={19} color={COLORS.primary} />
-              </View>
-              <Text style={styles.infoText}>{dept}</Text>
+              <View style={styles.iconCircle}><Icon name="time-outline" size={18} color={COLORS.primary} /></View>
+              <Text style={styles.infoText}>Thời gian: <Text style={styles.timeText}>{timeStr}</Text> ngày {dateStr}</Text>
             </View>
 
-            {/* Thời gian */}
             <View style={styles.infoRow}>
-              <View style={styles.iconWrapper}>
-                <Icon name="calendar" size={19} color={COLORS.primary} />
-              </View>
-              <Text style={[styles.infoText, styles.timeText]}>{dateStr} • {timeStr}</Text>
+              <View style={styles.iconCircle}><Icon name="business-outline" size={18} color={COLORS.primary} /></View>
+              <Text style={styles.infoText}>Phòng: <Text style={styles.timeText}>{roomNumber}</Text></Text>
             </View>
 
-            {/* Triệu chứng */}
-            {item.symptoms && (
+            <View style={styles.infoRow}>
+              <View style={styles.iconCircle}><Icon name="medkit-outline" size={18} color={COLORS.primary} /></View>
+              <Text style={styles.infoText}>{specialization}</Text>
+            </View>
+
+            {item.symptoms ? (
               <View style={styles.symptomsBox}>
-                <Text style={styles.symptomsLabel}>Triệu chứng:</Text>
                 <Text style={styles.symptomsText}>{item.symptoms}</Text>
               </View>
+            ) : null}
+
+            {['pending', 'confirmed', 'waiting_results', 'completed'].includes(item.status) && (
+              <View style={styles.actionContainer}>
+                {showMain && (
+                  <TouchableOpacity onPress={() => startExamination(item)} style={styles.mainActionButton}>
+                    <LinearGradient colors={mainColors} style={styles.mainActionGradient}>
+                      <Icon name={mainIcon} size={20} color="#fff" />
+                      <Text style={styles.mainActionText}>{mainText}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {(item.status === 'pending' || (item.status === 'confirmed' && isToday)) && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      Alert.alert('Hủy lịch', 'Bạn chắc chắn muốn hủy?', [
+                        { text: 'Không', style: 'cancel' },
+                        {
+                          text: 'Hủy lịch',
+                          style: 'destructive',
+                          onPress: async () => {
+                            const { error } = await supabase
+                              .from('appointments')
+                              .update({ status: 'doctor_cancelled' })
+                              .eq('id', item.id);
+                            if (!error) {
+                              Alert.alert('Đã hủy', 'Lịch đã được hủy');
+                              loadAppointments();
+                            }
+                          },
+                        },
+                      ]);
+                    }}
+                    style={styles.secondaryButton}
+                  >
+                    <Text style={styles.secondaryText}>Hủy lịch</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-
-            {/* Nút hành động */}
-            <View style={styles.actionContainer}>
-              {isPending && (
-                <>
-                  <TouchableOpacity onPress={confirmAppointment} style={styles.confirmButton}>
-                    <Icon name="checkmark-circle" size={26} color={COLORS.textOnPrimary} />
-                    <Text style={styles.actionButtonText}>XÁC NHẬN LỊCH</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={cancelAppointment} style={styles.cancelButton}>
-                    <Icon name="close-circle" size={26} color={COLORS.textOnPrimary} />
-                    <Text style={styles.actionButtonText}>HỦY LỊCH</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {canStart && (
-                <TouchableOpacity onPress={() => startExamination(item)} style={styles.mainActionButton}>
-                  <LinearGradient colors={GRADIENTS.primaryButton} style={styles.mainActionButtonGradient}>
-                    <Icon name="medical" size={30} color={COLORS.textOnPrimary} />
-                    <Text style={styles.mainActionButtonText}>BẮT ĐẦU KHÁM NGAY</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-
-{isCompleted && (
-  <TouchableOpacity
-    activeOpacity={0.9}
-    onPress={() => startExamination(item)}
-    style={styles.secondaryActionButton}
-  >
-    <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={{
-        height: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 26,
-        paddingHorizontal: 20,
-      }}
-    >
-      <Icon name="document-text-outline" size={24} color="#fff" style={{ marginRight: 12 }} />
-      <Text style={{
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#fff',
-        letterSpacing: 0.8,
-      }}>
-        XEM LẠI BỆNH ÁN
-      </Text>
-    </LinearGradient>
-  </TouchableOpacity>
-)}
-            </View>
           </View>
         </View>
       </View>
@@ -298,71 +373,63 @@ export default function DoctorAppointmentsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary || '#3B82F6'} />
 
-      {/* Header */}
-      <LinearGradient colors={GRADIENTS.header} style={styles.headerGradient}>
+      <LinearGradient colors={GRADIENTS.header || ['#3B82F6', '#1D4ED8']} style={styles.headerGradient}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={30} color={COLORS.textOnPrimary} />
+            <Icon name="arrow-back" size={26} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Lịch Khám Của Tôi</Text>
         </View>
       </LinearGradient>
 
-      {/* Tab Bar – CHỈ GIỮ TEXT */}
-      {/* TAB BAR SIÊU ĐẸP – THAY ĐOẠN NÀY */}
-<View style={styles.tabBarContainer}>
-  {TABS.map(tab => (
-    <TouchableOpacity
-      key={tab.key}
-      activeOpacity={0.8}
-      onPress={() => setActiveTab(tab.key)}
-      style={styles.tabButton(activeTab === tab.key)}
-    >
-      <Text style={styles.tabText(activeTab === tab.key)}>
-        {tab.title}
-      </Text>
-    </TouchableOpacity>
-  ))}
-</View>
+      <View style={styles.tabBarContainer}>
+        <FlatList
+          data={TABS}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={item => item.key}
+          renderItem={({ item }) => (
+            <TabButton tab={item} activeTab={activeTab} setActiveTab={setActiveTab} />
+          )}
+        />
+      </View>
 
-      {/* Nội dung */}
       {loading && !refreshing ? (
         <View style={styles.centeredView}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={COLORS.primary || '#3B82F6'} />
           <Text style={styles.loadingText}>Đang tải lịch khám...</Text>
         </View>
       ) : error ? (
         <View style={styles.centeredView}>
-          <Icon name="cloud-offline-outline" size={100} color={COLORS.danger} />
+          <Icon name="cloud-offline-outline" size={80} color="#EF4444" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => loadAppointments()} style={styles.retryButton}>
-            <Text style={styles.actionButtonText}>Thử lại</Text>
-          </TouchableOpacity>
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.centeredView}>
-          <Icon name="calendar-clear-outline" size={110} color={COLORS.textLight} />
+          <Icon name="calendar-clear-outline" size={100} color="#94A3B8" />
           <Text style={styles.emptyText}>
             {activeTab === 'today' ? 'Hôm nay bạn chưa có lịch khám nào' : 'Không có lịch hẹn nào'}
           </Text>
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filtered}
           keyExtractor={item => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary || '#3B82F6']} />
           }
+          getItemLayout={(data, index) => ({
+            length: 290,
+            offset: 290 * index,
+            index,
+          })}
+          initialNumToRender={10}
         />
       )}
     </View>

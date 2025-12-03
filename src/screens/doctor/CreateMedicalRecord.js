@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,239 +15,244 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../api/supabase';
-import theme from '../../theme/theme';
 
-const {
-  COLORS,
-  GRADIENTS,
-  SPACING,
-  BORDER_RADIUS,
-  SHADOWS,
-  FONT_SIZE,
-  FONT_WEIGHT,
-} = theme;
-
-export default function CreateMedicalRecord() {
+export default function CreateMedicalRecordScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const {
-    appointmentId,
-    patientId,
-    patientName = 'Bệnh nhân',
-    onSaveSuccess,
-  } = route.params || {};
+  const { appointmentId, patientId, patientName = 'Bệnh nhân' } = route.params || {};
 
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [diagnosis, setDiagnosis] = useState('');
-  const [treatment, setTreatment] = useState('');
   const [notes, setNotes] = useState('');
-  const [medicines, setMedicines] = useState([
-    { id: Date.now(), name: '', dosage: '', duration: '', query: '', suggestions: [], show: false }
-  ]);
-  const [allMedicines, setAllMedicines] = useState([]);
+  const [selectedTests, setSelectedTests] = useState([]);
+  const [customTest, setCustomTest] = useState('');
 
-  useEffect(() => {
-    fetchMedicines();
-  }, []);
+  const quickTests = [
+    'Công thức máu', 'Đường huyết', 'Cholesterol', 'Triglyceride',
+    'Chức năng gan', 'Chức năng thận', 'Nước tiểu', 'CRP',
+    'Siêu âm bụng', 'X-Quang ngực', 'Điện tâm đồ', 'HBsAg', 'Anti-HCV'
+  ];
 
-  const fetchMedicines = async () => {
-    try {
-      const { data } = await supabase.from('medicines').select('name, generic_name, dosage, form').order('name');
-      setAllMedicines(data || []);
-    } catch (err) { console.log(err); }
+  const toggleTest = (test) => {
+    console.log('Toggle xét nghiệm:', test);
+    setSelectedTests(prev =>
+      prev.includes(test) ? prev.filter(t => t !== test) : [...prev, test]
+    );
   };
 
-  const searchMedicine = (text, index) => {
-    if (!text.trim()) {
-      updateMedicine(index, 'suggestions', []);
-      updateMedicine(index, 'show', false);
-      return;
+  const addCustomTest = () => {
+    const name = customTest.trim();
+    if (name && !selectedTests.includes(name)) {
+      console.log('Thêm xét nghiệm tùy chỉnh:', name);
+      setSelectedTests(prev => [...prev, name]);
+      setCustomTest('');
     }
-    const filtered = allMedicines
-      .filter(m => m.name.toLowerCase().includes(text.toLowerCase()) || 
-                  (m.generic_name && m.generic_name.toLowerCase().includes(text.toLowerCase())))
-      .slice(0, 6);
-    updateMedicine(index, 'suggestions', filtered);
-    updateMedicine(index, 'show', true);
   };
 
-  const selectMedicine = (med, index) => {
-    updateMedicine(index, 'name', med.name);
-    updateMedicine(index, 'dosage', med.dosage || '1 viên/lần x 3 lần/ngày');
-    updateMedicine(index, 'query', med.name);
-    updateMedicine(index, 'suggestions', []);
-    updateMedicine(index, 'show', false);
+  const removeTest = (test) => {
+    console.log('Xóa xét nghiệm:', test);
+    setSelectedTests(prev => prev.filter(t => t !== test));
   };
 
-  const updateMedicine = (index, field, value) => {
-    setMedicines(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
+  const handleFinishExamination = async () => {
+    if (!diagnosis.trim()) {
+      return Alert.alert('Lỗi', 'Vui lòng nhập chẩn đoán');
+    }
 
-  const addMedicine = () => setMedicines(prev => [...prev, {
-    id: Date.now(), name: '', dosage: '', duration: '', query: '', suggestions: [], show: false
-  }]);
+    console.log('Bắt đầu lưu bệnh án và chỉ định xét nghiệm...');
+    setLoading(true);
 
-  const removeMedicine = (index) => {
-    if (medicines.length > 1) setMedicines(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const saveRecord = async () => {
-    if (!diagnosis.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập chẩn đoán');
-
-    setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const doctorId = user?.id;
+      console.log('Doctor ID:', user.id);
 
-      const { data: record } = await supabase
+      console.log('1. Tạo bệnh án...');
+      const { data: record, error: recordError } = await supabase
         .from('medical_records')
         .insert({
           patient_id: patientId,
-          doctor_id: doctorId,
+          doctor_id: user.id,
           appointment_id: appointmentId,
           diagnosis: diagnosis.trim(),
-          treatment: treatment.trim() || null,
           notes: notes.trim() || null,
         })
         .select()
         .single();
 
-      const validMeds = medicines.filter(m => m.name.trim());
-      if (validMeds.length > 0) {
-        await supabase.from('prescriptions').insert(
-          validMeds.map(m => ({
-            record_id: record.id,
-            medicine_name: m.name,
-            dosage: m.dosage,
-            duration: m.duration || null,
-          }))
-        );
+      if (recordError) throw recordError;
+      console.log('Tạo bệnh án thành công, ID:', record.id);
+
+      if (selectedTests.length > 0) {
+        console.log('2. Gửi chỉ định', selectedTests.length, 'xét nghiệm...');
+        const testPayload = selectedTests.map(name => ({
+          patient_id: patientId,
+          appointment_id: appointmentId,
+          test_type: 'lab',
+          test_name: name,
+          status: 'pending',
+        }));
+
+        const { error: testError } = await supabase
+          .from('test_results')
+          .insert(testPayload);
+
+        if (testError) throw testError;
+        console.log('Gửi chỉ định xét nghiệm thành công');
+      } else {
+        console.log('Không có chỉ định xét nghiệm');
       }
 
-      await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
+      console.log('3. Cập nhật trạng thái lịch hẹn thành completed...');
+      const { error: aptError } = await supabase
+        .from('appointments')
+        .update({ status: 'completed' })
+        .eq('id', appointmentId);
 
-      Alert.alert('Thành công', 'Bệnh án đã được lưu!', [
-        { text: 'OK', onPress: () => {
-          onSaveSuccess?.();
-          navigation.navigate('DoctorMain', { screen: 'AppointmentsTab' });
-        }}
-      ]);
+      if (aptError) throw aptError;
+      console.log('Cập nhật lịch hẹn thành công');
+
+      Alert.alert(
+        'Thành công!',
+        selectedTests.length > 0
+          ? `Đã gửi chỉ định ${selectedTests.length} xét nghiệm.\nBạn có thể kê đơn thuốc khi có kết quả.`
+          : 'Khám hoàn tất. Không có chỉ định xét nghiệm.',
+        [{ text: 'OK', onPress: () => navigation.replace('DoctorMain') }]
+      );
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không thể lưu');
+      console.error('Lỗi khi lưu bệnh án:', err);
+      Alert.alert('Lỗi', err.message || 'Không thể lưu bệnh án');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      
-      {/* HEADER XANH APPLE ĐẸP LUNG LINH */}
-      <LinearGradient colors={GRADIENTS.header} style={{ paddingTop: theme.headerPaddingTop, paddingBottom: SPACING.xxl, paddingHorizontal: SPACING.xl }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#3B82F6" />
+
+      <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={{ paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={28} color="#fff" />
           </TouchableOpacity>
-          <Text style={{ fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.heavy, color: '#fff' }}>
+          <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#fff', marginLeft: 16 }}>
             Tạo bệnh án
           </Text>
-          <View style={{ width: 40 }} />
         </View>
-        <Text style={{ color: '#fff', fontSize: FONT_SIZE.lg, marginTop: SPACING.sm, opacity: 0.9 }}>
-          Bệnh nhân: <Text style={{ fontWeight: FONT_WEIGHT.bold }}>{patientName}</Text>
+        <Text style={{ color: '#E0E7FF', fontSize: 16, marginTop: 8 }}>
+          Bệnh nhân: <Text style={{ fontWeight: 'bold' }}>{patientName}</Text>
         </Text>
       </LinearGradient>
 
-      <ScrollView 
-        style={{ flex: 1, backgroundColor: COLORS.background, marginTop: -20 }}
-        contentContainerfilt={{ padding: SPACING.xl, paddingTop: SPACING.xxl }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* CHẨN ĐOÁN */}
-        <View style={s.card}>
-          <Text style={s.label}>Chẩn đoán <Text style={{ color: COLORS.danger }}>*</Text></Text>
+      <ScrollView style={{ flex: 1, backgroundColor: '#F8FAFC' }} contentContainerStyle={{ padding: 20 }}>
+        
+        <View style={styles.card}>
+          <Text style={styles.label}>Chẩn đoán <Text style={{ color: 'red' }}>*</Text></Text>
           <TextInput
-            style={s.textArea}
-            placeholder="Viêm họng cấp, sốt..."
+            style={styles.textArea}
+            placeholder="Viêm họng cấp, sốt, ho..."
             value={diagnosis}
             onChangeText={setDiagnosis}
             multiline
           />
         </View>
 
-        {/* ĐƠN THUỐC – SIÊU ĐẸP, SIÊU NHANH */}
-        <View style={s.card}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg }}>
-            <Text style={s.label}>Đơn thuốc</Text>
-            <TouchableOpacity onPress={addMedicine}>
-              <Ionicons name="add-circle" size={36} color={COLORS.primary} />
+        <View style={styles.card}>
+          <Text style={styles.label}>Chỉ định xét nghiệm cận lâm sàng</Text>
+          <Text style={{ color: '#64748B', fontSize: 14, marginBottom: 12 }}>
+            Bấm để chọn – có thể chọn nhiều
+          </Text>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+            {quickTests.map(test => (
+              <TouchableOpacity
+                key={test}
+                onPress={() => toggleTest(test)}
+                style={{
+                  backgroundColor: selectedTests.includes(test) ? '#3B82F6' : '#F1F5F9',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 30,
+                  borderWidth: 1.5,
+                  borderColor: selectedTests.includes(test) ? '#3B82F6' : '#CBD5E1',
+                }}
+              >
+                <Text style={{
+                  color: selectedTests.includes(test) ? '#fff' : '#475569',
+                  fontWeight: '600',
+                }}>
+                  {test}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Xét nghiệm khác..."
+              value={customTest}
+              onChangeText={setCustomTest}
+              onSubmitEditing={addCustomTest}
+            />
+            <TouchableOpacity onPress={addCustomTest}>
+              <Ionicons name="add-circle" size={44} color="#10B981" />
             </TouchableOpacity>
           </View>
 
-          {medicines.map((med, i) => (
-            <View key={med.id} style={{ marginBottom: SPACING.xl }}>
-              <View style={s.searchBox}>
-                <Ionicons name="search" size={20} color={COLORS.textLight} style={{ marginRight: SPACING.md }} />
-                <TextInput
-                  style={{ flex: 1, fontSize: FONT_SIZE.lg }}
-                  placeholder="Tìm tên thuốc..."
-                  value={med.query}
-                  onChangeText={t => { updateMedicine(i, 'query', t); searchMedicine(t, i); }}
-                />
-                {medicines.length > 1 && (
-                  <TouchableOpacity onPress={() => removeMedicine(i)}>
-                    <Ionicons name="close-circle" size={28} color={COLORS.danger} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {med.show && med.suggestions.length > 0 && (
-                <View style={s.suggestions}>
-                  {med.suggestions.map((s, idx) => (
-                    <TouchableOpacity key={idx} style={s.suggestion} onPress={() => selectMedicine(s, i)}>
-                      <Text style={{ fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary }}>{s.name}</Text>
-                      <Text style={{ fontSize: FONT_SIZE.sm, color: COLORS.textSecondary }}>
-                        {s.generic_name || s.dosage}
-                      </Text>
+          {selectedTests.length > 0 && (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ fontWeight: 'bold', color: '#1E293B', marginBottom: 8 }}>
+                Đã chỉ định ({selectedTests.length})
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {selectedTests.map(test => (
+                  <View key={test} style={{
+                    backgroundColor: '#DBEAFE',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <Text style={{ color: '#1E40AF', fontWeight: '600' }}>{test}</Text>
+                    <TouchableOpacity onPress={() => removeTest(test)}>
+                      <Ionicons name="close" size={18} color="#1E40AF" />
                     </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              <View style={{ flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md }}>
-                <TextInput style={s.input} placeholder="Liều lượng" value={med.dosроб} onChangeText={t => updateMedicine(i, 'dosage', t)} />
-                <TextInput style={s.input} placeholder="Thời gian dùng" value={med.duration} onChangeText={t => updateMedicine(i, 'duration', t)} />
+                  </View>
+                ))}
               </View>
             </View>
-          ))}
+          )}
         </View>
 
-        {/* DẶN DÒ */}
-        <View style={s.card}>
-          <Text style={s.label}>Dặn dò / Hướng dẫn điều trị</Text>
-          <TextInput style={s.textArea} placeholder="Uống nhiều nước, nghỉ ngơi..." value={treatment} onChangeText={setTreatment} multiline />
+        <View style={styles.card}>
+          <Text style={styles.label}>Ghi chú thêm</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Thông tin bổ sung, tiền sử dị ứng..."
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
         </View>
 
-        {/* GHI CHÚ */}
-        <View style={s.card}>
-          <Text style={s.label}>Ghi chú thêm</Text>
-          <TextInput style={s.textArea} placeholder="Thông tin bổ sung..." value={notes} onChangeText={setNotes} multiline />
-        </View>
-
-        {/* NÚT HOÀN TẤT */}
-        <TouchableOpacity onPress={saveRecord} disabled={saving} style={{ marginVertical: SPACING.xxl }}>
-          <LinearGradient colors={GRADIENTS.primaryButton} style={s.saveBtn}>
-            {saving ? (
+        <TouchableOpacity
+          onPress={handleFinishExamination}
+          disabled={loading}
+          style={{ marginTop: 30, marginBottom: 40 }}
+        >
+          <LinearGradient
+            colors={loading ? ['#94A3B8', '#64748B'] : ['#10B981', '#059669']}
+            style={styles.finishBtn}
+          >
+            {loading ? (
               <ActivityIndicator color="#fff" size="large" />
             ) : (
               <>
-                <Ionicons name="checkmark-done" size={30} color="#fff" />
-                <Text style={s.saveText}>HOÀN TẤT KHÁM BỆNH</Text>
+                <Ionicons name="checkmark-done" size={32} color="#fff" />
+                <Text style={styles.finishText}>GỬI CHỈ ĐỊNH & HOÀN TẤT KHÁM</Text>
               </>
             )}
           </LinearGradient>
@@ -257,74 +262,59 @@ export default function CreateMedicalRecord() {
   );
 }
 
-// STYLE DỄ THƯƠNG, CHUẨN THEME, ĐẸP KHÔNG CHỊU NỔI
-const s = {
+const styles = {
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.xl,
-    ...SHADOWS.card,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   label: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 12,
   },
   textArea: {
-    backgroundColor: '#F2F4F7',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    fontSize: FONT_SIZE.lg,
-    minHeight: 110,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
+    minHeight: 100,
     textAlignVertical: 'top',
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: '#E2E8F0',
   },
   input: {
-    flex: 1,
-    backgroundColor: '#F2F4F7',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    fontSize: FONT_SIZE.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: '#E2E8F0',
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F4F7',
-    borderRadius: BORDER_RADIUS.xl,
-    paddingHorizontal: SPACING.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-  },
-  suggestions: {
-    backgroundColor: '#fff',
-    borderRadius: BORDER_RADIUS.xl,
-    marginTop: SPACING.sm,
-    maxHeight: 240,
-    ...SHADOWS.card,
-  },
-  suggestion: {
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  saveBtn: {
+  finishBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.lg,
-    paddingVertical: SPACING.xl,
-    borderRadius: BORDER_RADIUS.xxl,
-    ...SHADOWS.header,
+    gap: 16,
+    paddingVertical: 20,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  saveText: {
+  finishText: {
     color: '#fff',
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: FONT_WEIGHT.heavy,
+    fontSize: 20,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
 };

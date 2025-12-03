@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,236 +7,213 @@ import {
   TextInput,
   ActivityIndicator,
   FlatList,
-  Alert,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient'; 
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../../api/supabase';
-export default function SelectDepartment() {
+
+import {
+  COLORS,
+  GRADIENTS,
+  SPACING,
+  BORDER_RADIUS,
+  FONT_SIZE,
+  SHADOWS,
+} from '../../../../theme/theme';
+
+export default function SelectSpecialization() {
   const navigation = useNavigation();
   const route = useRoute();
   const { date } = route.params;
 
-  const [departments, setDepartments] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  const [specializations, setSpecializations] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const formatHeaderDate = (dateStr) => {
-    const dateObj = new Date(dateStr);
-    const dayNames = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    const day = dayNames[dateObj.getDay()];
-    const dateNum = dateObj.getDate();
-    const month = dateObj.getMonth() + 1;
-    return `${day}, ${dateNum}/${month}`;
-  };
-  const headerDate = useMemo(() => formatHeaderDate(date), [date]);
+  const headerDate = new Date(date).toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric',
+  });
 
-  const getVietnameseDay = (dateStr) => {
-    const date = new Date(dateStr);
-    const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    return dayNames[date.getDay()].trim();
+  const getDayOfWeek = (dateStr) => {
+    const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    return days[new Date(dateStr).getDay()];
   };
 
-  const fetchDepartments = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const targetDay = getVietnameseDay(date);
+      const targetDay = getDayOfWeek(date);
 
-      // (Giữ nguyên logic truy vấn Supabase)
-      const { data, error } = await supabase
-        .from('departments')
+      const { data: schedules, error } = await supabase
+        .from('doctor_schedule_template')
         .select(`
-          id,
-          name,
-          description,
-          services!services_department_id_fkey (price),
-          doctors!doctors_department_id_fkey!inner (
+          doctor_id,
+          day_of_week,
+          start_time,
+          end_time,
+          doctors!inner (
             id,
             name,
             room_number,
             specialization,
-            experience_years,
-            doctor_schedule_template!doctor_schedule_template_doctor_id_fkey!inner (
-              day_of_week,
-              start_time,
-              end_time
-            )
+            department_name
           )
         `)
-        .order('name', { ascending: true });
+        .eq('day_of_week', targetDay);
 
       if (error) throw error;
+      if (!schedules || schedules.length === 0) {
+        setSpecializations([]);
+        setLoading(false);
+        return;
+      }
 
-      const validDepts = data
-        .map(dept => {
-          const validDoctors = (dept.doctors || []).filter(doctor =>
-            (doctor.doctor_schedule_template || []).some(t =>
-              t.day_of_week?.trim() === targetDay &&
-              t.end_time > t.start_time
-            )
-          );
+      const specMap = new Map();
 
-          const servicePrice = dept.services?.[0]?.price ?? 150000;
+      schedules.forEach(sch => {
+        const doctor = sch.doctors;
+        if (!doctor?.specialization) return;
 
-          return {
-            ...dept,
-            doctors: validDoctors,
-            price: servicePrice,
-          };
-        })
-        .filter(dept => dept.doctors.length > 0);
+        const specs = doctor.specialization
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
 
-      setDepartments(validDepts);
+        specs.forEach(spec => {
+          if (!specMap.has(spec)) {
+            specMap.set(spec, {
+              name: spec,
+              doctorCount: 0,
+              doctors: [],
+            });
+          }
+
+          const entry = specMap.get(spec);
+          entry.doctorCount++;
+
+          const exists = entry.doctors.some(d => d.id === doctor.id);
+          if (!exists) {
+            entry.doctors.push({
+              id: doctor.id,
+              name: doctor.name || 'Bác sĩ',
+              room_number: doctor.room_number || 'Chưa có',
+              specializationText: specs.join(' • '),
+              specializations: specs,
+              department_name: doctor.department_name || 'Chưa rõ khoa',
+              schedule: sch,
+            });
+          }
+        });
+      });
+
+      const result = Array.from(specMap.values())
+        .map(item => ({
+          ...item,
+          id: `spec_${item.name}`,
+          price: 180000,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setSpecializations(result);
     } catch (err) {
-      console.error('Lỗi lấy khoa:', err);
-      Alert.alert('Lỗi', 'Không thể tải danh sách chuyên khoa.');
+      console.error(err);
+      Alert.alert('Lỗi', 'Không thể tải danh sách chuyên khoa');
     } finally {
       setLoading(false);
     }
   }, [date]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchDepartments();
-    }, [fetchDepartments])
-  );
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
-  // === TÌM KIẾM ===
-  const filteredDepartments = useMemo(() => {
-    if (!search.trim()) return departments;
-    const lower = search.toLowerCase();
-    return departments.filter(d =>
-      d.name.toLowerCase().includes(lower) ||
-      (d.description && d.description.toLowerCase().includes(lower))
+  const filteredList = useMemo(() => {
+    if (!search.trim()) return specializations;
+    return specializations.filter(s => 
+      s.name.toLowerCase().includes(search.toLowerCase())
     );
-  }, [search, departments]);
+  }, [search, specializations]);
 
-  useEffect(() => {
-    setFiltered(filteredDepartments);
-  }, [filteredDepartments]);
-
-  // === RENDER ITEM ===
-  const renderItem = useCallback(({ item }) => {
-    const hasNote = item.description && item.description.includes('Chỉ nhận');
-    const price = item.price || 150000;
-
-    // Tính toán số lượng bác sĩ có sẵn (đã được lọc ở bước fetch)
-    const availableDoctorsCount = item.doctors.length;
-
-    return (
-      <TouchableOpacity
-        style={styles.item}
-        onPress={() =>
-          navigation.navigate('SelectTimeSlot', {
-            date,
-            department: item,
-            // Chuẩn bị template dữ liệu cho màn hình tiếp theo
-            templates: item.doctors.flatMap(d =>
-              (d.doctor_schedule_template || []).map(t => ({
-                ...t,
-                doctor_id: d.id,
-                doctors: {
-                  id: d.id,
-                  name: d.name || 'Bác sĩ', 
-                  room_number: d.room_number,
-                  specialization: d.specialization,
-                  experience_years: d.experience_years,
-                },
-                max_patients_per_slot: 5
-              }))
-            )
-          })
-        }
-      >
-        <View style={styles.itemLeft}>
-          {/* Icon (Thay vì số 1) */}
-          <View style={styles.iconCircle}>
-            <Ionicons name="medical" size={20} color="#FFFFFF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.deptName}>{item.name}</Text>
-            {/* Thêm thông tin số lượng bác sĩ */}
-            <Text style={styles.doctorCount}>
-              <Ionicons name="person" size={12} color="#4B5563" /> {availableDoctorsCount} bác sĩ có lịch
-            </Text>
-            {hasNote && <Text style={styles.note}>{item.description}</Text>}
-          </View>
+  const renderItem = useCallback(({ item }) => (
+    <TouchableOpacity
+      style={styles.item}
+      onPress={() => navigation.navigate('SelectTimeSlot', {
+        date,
+        specialization: item.name,
+        doctors: item.doctors.map(d => ({
+          doctor_id: d.id,
+          doctor_name: d.name,
+          room_number: d.room_number,
+          specializationText: d.specializationText,
+          department_name: d.department_name,
+          start_time: d.schedule.start_time,
+          end_time: d.schedule.end_time,
+        })),
+      })}
+    >
+      <View style={styles.left}>
+        <View style={styles.icon}>
+          <Ionicons name="medical-outline" size={26} color={COLORS.textOnPrimary} />
         </View>
-        
-        <View style={styles.itemRight}>
-          <Text style={styles.price}>{price.toLocaleString('vi-VN')}đ</Text>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        <View>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.count}>{item.doctorCount} bác sĩ</Text>
         </View>
-      </TouchableOpacity>
-    );
-  }, [date, navigation]);
-
-  const keyExtractor = useCallback(item => item.id.toString(), []);
+      </View>
+      <View style={styles.right}>
+        <Text style={styles.price}>{item.price.toLocaleString('vi-VN')}đ</Text>
+        <Ionicons name="chevron-forward" size={24} color={COLORS.textLight} />
+      </View>
+    </TouchableOpacity>
+  ), [date, navigation]);
 
   return (
     <View style={styles.container}>
-      {/* HEADER MỚI VỚI GRADIENT */}
-      <LinearGradient
-        colors={['#1E40AF', '#60A5FA']} 
-        style={styles.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      <LinearGradient colors={GRADIENTS.header} style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={26} color={COLORS.textOnPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Chọn chuyên khoa</Text>
-        <Text style={styles.subtitle}>Ngày khám: {headerDate}</Text>
+        <View>
+          <Text style={styles.title}>Chọn chuyên khoa</Text>
+          <Text style={styles.date}>{headerDate}</Text>
+        </View>
+        <View style={{ width: 26 }} />
       </LinearGradient>
 
-      {/* SEARCH CONTAINER MỚI */}
-      <View style={styles.searchContainerWrapper}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#9CA3AF" />
+      {/* TÌM KIẾM NẰM DƯỚI HEADER + TO HƠN 1 CHÚT */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={22} color={COLORS.textSecondary} />
           <TextInput
-            placeholder="Tìm nhanh chuyên khoa, triệu chứng..."
-            placeholderTextColor="#9CA3AF"
-            style={styles.searchInput}
+            placeholder="Tìm chuyên khoa..."
             value={search}
             onChangeText={setSearch}
-            autoCapitalize="none"
+            style={styles.input}
+            placeholderTextColor={COLORS.textLight}
           />
         </View>
       </View>
 
-      <Text style={styles.hint}>Nhấn vào để xem và chọn khung giờ trống</Text>
-
-      {/* BODY CONTENT */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Đang tải danh sách chuyên khoa...</Text>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loading}>Đang tải chuyên khoa...</Text>
         </View>
-      ) : filtered.length === 0 ? (
+      ) : filteredList.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={48} color="#D1D5DB" />
-          <Text style={styles.emptyText}>
-            {search
-              ? `Không tìm thấy chuyên khoa '${search}'`
-              : `Rất tiếc, ngày ${headerDate} không có chuyên khoa nào làm việc.`}
-          </Text>
-          <TouchableOpacity style={styles.backButtonAction} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>Chọn ngày khác</Text>
-          </TouchableOpacity>
+          <Ionicons name="calendar-outline" size={80} color={COLORS.textLight} />
+          <Text style={styles.empty}>Không có bác sĩ làm việc ngày này</Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={keyExtractor}
+          data={filteredList}
           renderItem={renderItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={10}
         />
       )}
     </View>
@@ -244,120 +221,72 @@ export default function SelectDepartment() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    marginBottom: 10,
-  },
-  title: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
-  subtitle: { fontSize: 14, fontWeight: '500', color: '#E5E7EB', marginTop: 4 },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
-  searchContainerWrapper: {
-    // Để Search Input nằm hơi chồng lên Header
-    marginTop: -20,
-    marginHorizontal: 16,
-    zIndex: 1,
-  },
-  searchContainer: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 5,
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xl,
+    borderBottomLeftRadius: BORDER_RADIUS.xxl,
+    borderBottomRightRadius: BORDER_RADIUS.xxl,
   },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1F2937' },
-  
-  hint: { 
-    marginHorizontal: 24, 
-    color: '#FB923C', 
-    fontSize: 13, 
-    marginTop: 16, 
-    marginBottom: 8,
-    fontWeight: '600',
+  title: { fontSize: 26, fontWeight: '800', color: COLORS.textOnPrimary },
+  date: { fontSize: FONT_SIZE.sm, color: COLORS.textOnPrimary + 'cc', marginTop: 4 },
+
+  // TÌM KIẾM DƯỚI HEADER, TO HƠN, ĐẸP HƠN
+  searchContainer: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.background,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: 18,  // to hơn
+    borderRadius: BORDER_RADIUS.xl,
+    ...SHADOWS.card,
+  },
+  input: {
+    flex: 1,
+    marginLeft: SPACING.md,
+    fontSize: FONT_SIZE.lg,  // chữ to hơn
+    color: COLORS.textPrimary,
   },
 
-  listContent: { 
-    paddingHorizontal: 16, 
-    paddingBottom: 20,
-    paddingTop: 8, // Thêm padding trên để list không dính vào hint
-  },
   item: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: COLORS.surface,
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.md,
+    padding: SPACING.xl,
+    borderRadius: BORDER_RADIUS.xl,
+    ...SHADOWS.card,
   },
-  itemLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#059669', // Màu xanh lá cây đậm
+  left: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  icon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.lg,
   },
-  deptName: { fontWeight: '800', color: '#1F2937', fontSize: 16, marginBottom: 2 },
-  doctorCount: { fontSize: 13, color: '#4B5563', fontWeight: '500' },
-  note: { 
-    fontSize: 12, 
-    color: '#DC2626', 
-    marginTop: 4, 
-    fontWeight: '600',
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  itemRight: { alignItems: 'flex-end', justifyContent: 'center' },
-  price: { fontWeight: '800', color: '#1E40AF', fontSize: 16, marginBottom: 4 },
-  
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { marginTop: 12, color: '#6B7280', fontSize: 15 },
-  emptyText: { marginTop: 12, color: '#6B7280', textAlign: 'center', fontSize: 15, lineHeight: 22 },
-  backButtonAction: {
-    marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
-  },
-  backButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  name: { fontSize: FONT_SIZE.lg, fontWeight: '800', color: COLORS.textPrimary },
+  count: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 4 },
+  right: { alignItems: 'flex-end' },
+  price: { fontSize: FONT_SIZE.lg, fontWeight: '800', color: COLORS.primary },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xxl },
+  loading: { marginTop: SPACING.lg, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  empty: { marginTop: SPACING.xl, fontSize: FONT_SIZE.lg, color: COLORS.textSecondary, textAlign: 'center' },
+  list: { paddingTop: SPACING.md },
 });

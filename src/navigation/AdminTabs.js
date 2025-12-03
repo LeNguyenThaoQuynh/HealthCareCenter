@@ -85,7 +85,7 @@ export default function AdminNavigator() {
         }}
       />
       <Drawer.Screen
-        name="Lịch làm việc"
+        name="CreateDoctorSchedule"
         component={CreateDoctorScheduleScreen}
         options={{
           drawerIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
