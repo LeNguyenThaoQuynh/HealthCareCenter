@@ -41,7 +41,7 @@
 │   │   │   ├── CreateUserScreen.js
 │   │   │   ├── ManageDoctorsScreen.js
 │   │   │   ├── ManagePatientsScreen.js
-│   │   │   └── ManageUsersScreen.js
+│   │   │   └── .js
 │   │   │
 │   │   ├── 📁 reports
 │   │   │   └── ReportsScreen.js

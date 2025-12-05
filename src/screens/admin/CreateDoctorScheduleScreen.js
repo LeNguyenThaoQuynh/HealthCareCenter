@@ -130,14 +130,15 @@ export default function CreateDoctorScheduleScreen() {
 
       const userId = authData.user.id;
 
-      // 2. Insert user_profiles
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .upsert({
-          id: userId,
-          full_name: doctorInfo.fullName,
-          email: doctorInfo.email,
-        });
+const { error: profileError } = await supabase
+  .from("user_profiles")
+  .insert({  // dùng insert thay vì upsert để tránh lỗi trùng
+    id: userId,
+    full_name: doctorInfo.fullName,
+    email: doctorInfo.email,
+    role_id: 2,                    // ĐÚNG YÊU CẦU CỦA BẠN
+    created_at: new Date().toISOString(),
+  });
 
       if (profileError) throw profileError;
 

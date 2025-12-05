@@ -73,7 +73,7 @@ export default function ConfirmBookingDoctor() {
       Alert.alert(
         'Đặt lịch thành công!',
         `Lịch khám với BS. ${doctor.name} đã được xác nhận.`,
-        [{ text: 'Xem lịch khám', onPress: () => navigation.replace('MyAppointments') }]
+        [{ text: 'Xem lịch khám', onPress: () => navigation.replace('HistoryScreen') }]
       );
 
     } catch (err) {
@@ -112,7 +112,7 @@ export default function ConfirmBookingDoctor() {
           <Ionicons name="arrow-back" size={30} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Xác nhận đặt lịch</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('PatientHome')}>
+        <TouchableOpacity onPress={() => navigation.navigate('HistoryScreen')}>
           <Ionicons name="home" size={28} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>
