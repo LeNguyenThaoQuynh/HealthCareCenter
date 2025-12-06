@@ -12,6 +12,9 @@ import AppointmentScreen from "../screens/patient/AppointmentScreen";
 import HistoryScreen from "../screens/patient/HistoryScreen";
 import ProfileScreen from "../screens/patient/ProfileScreen";
 import EditProfileScreen from "../screens/patient/EditProfileScreen";
+import BloodGlucoseScreen from"../screens/patient/Health_Monitoring/BloodGlucoseScreen";
+import BloodPressureScreen from"../screens/patient/Health_Monitoring/BloodPressureScreen";
+import WeightBMIScreen from"../screens/patient/Health_Monitoring/WeightBMIScreen";
 
 // === CÁC MÀN HÌNH BOOKING CHI TIẾT ===
 import SelectDepartment from "../screens/patient/Book_appointment/BookByDate/SelectDepartment";
@@ -71,6 +74,10 @@ export default function PatientStack() {
       <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
 
+
+<Stack.Screen name="WeightBMI" component={WeightBMIScreen}/>
+<Stack.Screen name="BloodPressure" component={BloodPressureScreen}/>
+<Stack.Screen name="BloodGlucose" component={BloodGlucoseScreen}/>
       {/* MÀN HÌNH BỆNH ÁN ĐIỆN TỬ – ĐẸP NHƯ VINMEC */}
       <Stack.Screen
         name="MedicalRecordScreen"

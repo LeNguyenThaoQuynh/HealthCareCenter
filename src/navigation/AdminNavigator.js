@@ -5,10 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AdminHomeScreen from '../screens/admin/AdminHomeScreen';
 import ManageDoctorsScreen from '../screens/admin/ManageDoctorsScreen';
 import ManagePatientsScreen from '../screens/admin/ManagePatientsScreen';
-import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
 import AdminDashboard from '../screens/admin/AdminDashboard';
-import CreateUserScreen from '../screens/admin/CreateUserScreen';
-import ReportsScreen from '../screens/admin/ReportsScreen';
+import OutstandingDoctor from '../screens/admin/OutstandingDoctor';
 import CreateDoctorAccountScreen from '../screens/admin/CreateDoctorAccountScreen';
 import CreateDoctorScheduleScreen from '../screens/admin/CreateDoctorScheduleScreen';
 
@@ -45,11 +43,9 @@ export default function AdminNavigator() {
       <Drawer.Screen name="Trang chủ" component={AdminHomeScreen} />
       <Drawer.Screen name="Bác sĩ" component={ManageDoctorsScreen} />
       <Drawer.Screen name="Bệnh nhân" component={ManagePatientsScreen} />
-      <Drawer.Screen name="Người dùng" component={ManageUsersScreen} />
       <Drawer.Screen name="Quản trị" component={AdminDashboard} />
-      <Drawer.Screen name="Tạo tài khoản" component={CreateUserScreen} />
       <Drawer.Screen name="Tạo bác sĩ" component={CreateDoctorAccountScreen} />
-      <Drawer.Screen name="Báo cáo" component={ReportsScreen} />
+      <Drawer.Screen name="Báo cáo" component={OutstandingDoctor} />
       <Drawer.Screen name="CreateDoctorSchedule" component={CreateDoctorScheduleScreen} />
     </Drawer.Navigator>
   );

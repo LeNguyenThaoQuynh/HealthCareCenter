@@ -26,12 +26,18 @@ const {
 
 export default function AdminHomeScreen() {
   const navigation = useNavigation();
-  const [stats, setStats] = useState({ doctors: 0, patients: 0, users: 0, appointments: 0 });
+  const [stats, setStats] = useState({
+    doctors: 0,
+    patients: 0,
+    users: 0,
+    appointments: 0,
+  });
   const [loading, setLoading] = useState(true);
 
-  
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnims = useRef(Array.from({ length: 12 }, () => new Animated.Value(0.9))).current;
+  const scaleAnims = useRef(
+    Array.from({ length: 20 }, () => new Animated.Value(0.9))
+  ).current;
 
   const fetchStats = async () => {
     try {
@@ -44,36 +50,83 @@ export default function AdminHomeScreen() {
         supabase.from("doctors").select("*", { count: "exact", head: true }),
         supabase.from("patients").select("*", { count: "exact", head: true }),
         supabase.from("user_profiles").select("*", { count: "exact", head: true }),
-        supabase.from("appointments").select("*", { count: "exact", head: true }).neq("status", "cancelled"),
+        supabase
+          .from("appointments")
+          .select("*", { count: "exact", head: true })
+          .neq("status", "cancelled"),
       ]);
 
-      setStats({ doctors: doctors || 0, patients: patients || 0, users: users || 0, appointments: appointments || 0 });
+      setStats({
+        doctors: doctors || 0,
+        patients: patients || 0,
+        users: users || 0,
+        appointments: appointments || 0,
+      });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
       Animated.stagger(
         80,
-        scaleAnims.map(anim =>
-          Animated.spring(anim, { toValue: 1, friction: 8, tension: 100, useNativeDriver: true })
+        scaleAnims.map((a) =>
+          Animated.spring(a, {
+            toValue: 1,
+            friction: 8,
+            tension: 100,
+            useNativeDriver: true,
+          })
         )
       ).start();
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const menuItems = [
-    { title: "Quản lý bác sĩ",     icon: "medkit-outline",     screen: "ManageDoctors",       colors: ["#3B82F6", "#1D4ED8"] },
-    { title: "Tạo bác sĩ",         icon: "person-add-outline", screen: "CreateDoctorAccount",   colors: ["#10B981", "#059669"] },
-        { title: "thống kê doanh thu ",         icon: "area-chart", screen: "",   colors: ["#10B981", "#059669"] },
-        { title: "thống kê số lượng bệnh nhân",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
-        { title: "bác sĩ ưa thích ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
-        { title: "tạo khoa ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
-        { title: "thống kê doanh thu ",         icon: "person-add-outline", screen: "",   colors: ["#10B981", "#059669"] },
-
-    
+    {
+      title: "Quản lý bác sĩ",
+      icon: "medkit-outline",
+      screen: "ManageDoctors",
+      colors: ["#3B82F6", "#1D4ED8"],
+    },
+    {
+      title: "Tạo bác sĩ",
+      icon: "person-add-outline",
+      screen: "CreateDoctorAccount",
+      colors: ["#10B981", "#059669"],
+    },
+    {
+      title: "Thống kê doanh thu",
+      icon: "bar-chart-outline",
+      screen: "RevenueStats",
+      colors: ["#F59E0B", "#D97706"],
+    },
+    {
+  title: "Quản lý dịch vụ",
+  icon: "file-tray-full-outline",
+  screen: "ManageServices",
+  colors: ["#06B6D4", "#0E7490"],
+},
+    {
+      title: "Bác sĩ nổi bật",
+      icon: "star-outline",
+      screen: "OutstandingDoctor",
+      colors: ["#EC4899", "#DB2777"],
+    },
+    {
+      title: "Tạo khoa",
+      icon: "folder-open-outline",
+      screen: "CreateService",
+      colors: ["#06B6D4", "#0891B2"],
+    },
   ];
 
   if (loading) {
@@ -89,34 +142,54 @@ export default function AdminHomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
-      {/* HEADER NHỎ GỌN */}
+      {/* HEADER */}
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>Xin chào, Admin!</Text>
             <Text style={styles.subtitle}>Hôm nay bạn muốn làm gì?</Text>
           </View>
+
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>A</Text>
           </View>
         </View>
       </LinearGradient>
 
+      {/* BODY */}
       <Animated.ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        opacity={fadeAnim}
+        style={{ opacity: fadeAnim }}
       >
-        {/* THỐNG KÊ NHỎ GỌN */}
+        {/* STATS */}
         <View style={styles.statsRow}>
           {[
-            { label: "Bác sĩ", value: stats.doctors, icon: "medkit-outline", color: "#3B82F6" },
-            { label: "Bệnh nhân", value: stats.patients, icon: "people-outline", color: "#EC4899" },
-            { label: "Lịch khám", value: stats.appointments, icon: "calendar-outline", color: "#10B981" },
+            {
+              label: "Bác sĩ",
+              value: stats.doctors,
+              icon: "medkit-outline",
+              color: "#3B82F6",
+            },
+            {
+              label: "Bệnh nhân",
+              value: stats.patients,
+              icon: "people-outline",
+              color: "#EC4899",
+            },
+            {
+              label: "Lịch khám",
+              value: stats.appointments,
+              icon: "calendar-outline",
+              color: "#10B981",
+            },
           ].map((item, i) => (
-            <Animated.View key={i} style={[styles.statBox, { transform: [{ scale: scaleAnims[i] }] }]}>
+            <Animated.View
+              key={i}
+              style={[styles.statBox, { transform: [{ scale: scaleAnims[i] }] }]}
+            >
               <View style={styles.statInner}>
-                <Ionicons name={item.icon} size={24} color={item.color} />
+                <Ionicons name={item.icon} size={26} color={item.color} />
                 <Text style={styles.statValue}>{item.value}</Text>
                 <Text style={styles.statLabel}>{item.label}</Text>
               </View>
@@ -124,19 +197,25 @@ export default function AdminHomeScreen() {
           ))}
         </View>
 
-        {/* MENU CHÍNH */}
+        {/* MENU */}
         <Text style={styles.sectionTitle}>Chức năng chính</Text>
+
         <View style={styles.grid}>
           {menuItems.map((item, i) => (
             <TouchableOpacity
               key={i}
               style={styles.menuBtn}
-              onPress={() => navigation.navigate(item.screen)}
+              onPress={() => item.screen && navigation.navigate(item.screen)}
               activeOpacity={0.9}
             >
-              <Animated.View style={{ transform: [{ scale: scaleAnims[i + 3] }] }}>
-                <LinearGradient colors={item.colors} style={styles.menuGradient}>
-                  <Ionicons name={item.icon} size={32} color="#FFF" />
+              <Animated.View
+                style={{ transform: [{ scale: scaleAnims[i + 3] }] }}
+              >
+                <LinearGradient
+                  colors={item.colors}
+                  style={styles.menuGradient}
+                >
+                  <Ionicons name={item.icon} size={34} color="#FFF" />
                   <Text style={styles.menuText}>{item.title}</Text>
                 </LinearGradient>
               </Animated.View>
@@ -148,19 +227,39 @@ export default function AdminHomeScreen() {
   );
 }
 
-// STYLE NHỎ GỌN – ĐẸP – HOÀN HẢO CHO ĐIỆN THOẠI
+/* ====================== STYLES ====================== */
 const styles = {
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
 
   header: {
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.xl,
-    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  greeting: { fontSize: 24, fontWeight: "bold", color: "#FFF" },
-  subtitle: { fontSize: 15, color: "rgba(255,255,255,0.9)", marginTop: 4 },
+
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  greeting: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+
+  subtitle: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 4,
+  },
+
   avatar: {
     width: 56,
     height: 56,
@@ -169,34 +268,90 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarText: { fontSize: 24, fontWeight: "900", color: "#FFF" },
 
-  content: { padding: SPACING.xl },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#FFF",
+  },
 
-  statsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: SPACING.xl },
-  statBox: { flex: 1, marginHorizontal: 6 },
+  content: {
+    padding: SPACING.xl,
+  },
+
+  /* --- STATS --- */
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: SPACING.xl,
+  },
+  statBox: {
+    flex: 1,
+    marginHorizontal: 6,
+  },
   statInner: {
     backgroundColor: "#FFFFFF",
     padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: BORDER_RADIUS.lg,
     alignItems: "center",
     ...SHADOWS.card,
   },
-  statValue: { fontSize: 24, fontWeight: "bold", color: COLORS.textPrimary, marginTop: 8 },
-  statLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: 8,
+    color: COLORS.textPrimary,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
 
-  sectionTitle: { fontSize: 19, fontWeight: "bold", color: COLORS.textPrimary, marginBottom: SPACING.lg },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
+  },
 
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  menuBtn: { width: "45%", marginBottom: SPACING.lg },
+  /* --- MENU --- */
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  menuBtn: {
+    width: "47%",
+    marginBottom: SPACING.lg,
+  },
+
   menuGradient: {
-    borderRadius: BORDER_RADIUS.xl,
-    height: 80,
+    borderRadius: BORDER_RADIUS.lg,
+    height: 100,
     justifyContent: "center",
     alignItems: "center",
-    ...SHADOWS.large,
+    paddingHorizontal: 10,
+    ...SHADOWS.floating,
   },
-  menuText: { marginTop: 12, fontSize: 14, fontWeight: "400", color: "#FFF", textAlign: "center" },
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
-  loadingText: { marginTop: 16, fontSize: 16, color: COLORS.textSecondary },
+
+  menuText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#FFF",
+    fontWeight: "500",
+    textAlign: "center",
+  },
+
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
 };

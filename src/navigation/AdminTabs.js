@@ -5,13 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AdminHomeScreen from '../screens/admin/AdminHomeScreen';
 import ManageDoctorsScreen from '../screens/admin/ManageDoctorsScreen';
 import ManagePatientsScreen from '../screens/admin/ManagePatientsScreen';
-import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
 import AdminDashboard from '../screens/admin/AdminDashboard';
 import CreateUserScreen from '../screens/admin/CreateUserScreen';
-import ReportsScreen from '../screens/admin/ReportsScreen';
+import OutstandingDoctor from '../screens/admin/OutstandingDoctor';
 import CreateDoctorAccountScreen from '../screens/admin/CreateDoctorAccountScreen';
 import CreateDoctorScheduleScreen from '../screens/admin/CreateDoctorScheduleScreen';
-
+import RevenueStatsScreen from'../screens/admin/RevenueStatsScreen';
 const Drawer = createDrawerNavigator();
 
 export default function AdminNavigator() {
@@ -51,7 +50,7 @@ export default function AdminNavigator() {
       />
       <Drawer.Screen
         name="Người dùng"
-        component={ManageUsersScreen}
+        component={RevenueStatsScreen}
         options={{
           drawerIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
         }}
@@ -63,13 +62,7 @@ export default function AdminNavigator() {
           drawerIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} />,
         }}
       />
-      <Drawer.Screen
-        name="Tạo tài khoản"
-        component={CreateUserScreen}
-        options={{
-          drawerIcon: ({ color, size }) => <Ionicons name="person-add" size={size} color={color} />,
-        }}
-      />
+      
       <Drawer.Screen
         name="Tạo bác sĩ"
         component={CreateDoctorAccountScreen}
@@ -79,7 +72,7 @@ export default function AdminNavigator() {
       />
       <Drawer.Screen
         name="Báo cáo"
-        component={ReportsScreen}
+        component={OutstandingDoctor}
         options={{
           drawerIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} />,
         }}

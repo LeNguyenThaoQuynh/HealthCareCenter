@@ -28,10 +28,10 @@ const Colors = {
 };
 
 const TABS = [
-  { key: 'confirmed', title: 'Đã xác nhận',   icon: 'checkmark-circle', color: Colors.confirmed },
-  { key: 'pending',   title: 'Chờ duyệt',     icon: 'time',             color: Colors.pending },
-  { key: 'completed', title: 'Đã hoàn thành', icon: 'medkit',           color: Colors.completed },
-  { key: 'cancelled', title: 'Đã hủy',        icon: 'close-circle',     color: Colors.cancelled },
+  { key: 'confirmed', title: 'Đã xác nhận', icon: 'checkmark-circle', color: Colors.confirmed },
+  { key: 'pending', title: 'Chờ duyệt', icon: 'time', color: Colors.pending },
+  { key: 'completed', title: 'Đã hoàn thành', icon: 'medkit', color: Colors.completed },
+  { key: 'cancelled', title: 'Đã hủy', icon: 'close-circle', color: Colors.cancelled },
 ];
 
 export default function HistoryScreen() {
@@ -75,7 +75,6 @@ export default function HistoryScreen() {
     return ['cancelled', 'doctor_cancelled', 'patient_cancelled'].includes(app.status);
   });
 
-  // CHỈ CHO PHÉP HỦY KHI status = confirmed HOẶC pending
   const canCancel = (status) => ['confirmed', 'pending'].includes(status);
 
   const handleCancel = async (id) => {
@@ -149,9 +148,8 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <LinearGradient colors={Colors.gradient} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.canGoBack() && navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate("HomeScreen")}>
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title}>Lịch sử đặt lịch</Text>
@@ -160,7 +158,6 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* TABS */}
       <View style={styles.tabContainer}>
         <FlatList
           data={TABS}
@@ -173,7 +170,6 @@ export default function HistoryScreen() {
         />
       </View>
 
-      {/* NỘI DUNG */}
       <View style={styles.content}>
         {filteredAppointments.length === 0 ? (
           <Animated.View entering={ZoomIn.duration(600)} style={styles.empty}>
@@ -207,7 +203,6 @@ export default function HistoryScreen() {
               <Animated.View entering={FadeInDown.delay(index * 80).springify()}>
                 <AppointmentCard
                   item={item}
-                  // HOÀN THÀNH / ĐÃ HỦY → KHÔNG TRUYỀN onCancel → NÚT HỦY BIẾN MẤT HOÀN TOÀN
                   onCancel={canCancel(item.status) ? () => handleCancel(item.id) : undefined}
                 />
               </Animated.View>

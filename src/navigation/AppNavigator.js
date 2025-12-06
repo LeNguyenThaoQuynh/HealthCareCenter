@@ -12,11 +12,12 @@ import AdminDashboard from '../screens/admin/AdminDashboard';
 import ManageDoctorsScreen from '../screens/admin/ManageDoctorsScreen';
 import CreateDoctorAccountScreen from '../screens/admin/CreateDoctorAccountScreen';
 import CreateDoctorScheduleScreen from '../screens/admin/CreateDoctorScheduleScreen';
-import ReportsScreen from '../screens/admin/ReportsScreen';
-import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
+import OutstandingDoctor from '../screens/admin/OutstandingDoctor';
+import RevenueStatsScreen from '../screens/admin/RevenueStatsScreen';
 import ManagePatientsScreen from '../screens/admin/ManagePatientsScreen';
 import DoctorDetailScreen from '../screens/admin/DoctorDetailScreen';
-
+import CreateServiceScreen from'../screens/admin/CreateServiceScreen';
+import ManageServicesScreen from'../screens/admin/ManageServicesScreen';
 // === DOCTOR ===
 import DoctorHomeScreen from '../screens/doctor/DoctorHomeScreen';
 import DoctorAppointmentsScreen from '../screens/doctor/DoctorAppointmentsScreen';
@@ -57,10 +58,12 @@ export default function AppNavigator() {
       <Stack.Screen name="ManageDoctors" component={ManageDoctorsScreen} />
       <Stack.Screen name="CreateDoctorAccount" component={CreateDoctorAccountScreen} />
       <Stack.Screen name="CreateDoctorSchedule" component={CreateDoctorScheduleScreen} />
-      <Stack.Screen name="Reports" component={ReportsScreen} />
-      <Stack.Screen name="ManageUsers" component={ManageUsersScreen} />
+      <Stack.Screen name="OutstandingDoctor" component={OutstandingDoctor} />
       <Stack.Screen name="ManagePatients" component={ManagePatientsScreen} />
       <Stack.Screen name="DoctorDetail" component={DoctorDetailScreen} />
+      <Stack.Screen name="CreateService" component={CreateServiceScreen}/>
+      <Stack.Screen name='ManageServices' component={ManageServicesScreen}/>
+      <Stack.Screen name='RevenueStats' component={RevenueStatsScreen}/>
 
       {/* DOCTOR */}
       <Stack.Screen name="DoctorHome" component={DoctorHomeScreen} />
