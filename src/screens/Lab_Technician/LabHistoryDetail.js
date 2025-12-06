@@ -1,146 +1,248 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  StatusBar,
   Share,
-} from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+  StatusBar,
+} from "react-native";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function LabHistoryDetail() {
   const route = useRoute();
+  const navigation = useNavigation();
+
+  console.log("📥 Nhận params:", route.params);
+
   const {
-    patientName = 'Bệnh nhân',
-    doctorName = 'Không rõ',
+    patientName = "Bệnh nhân",
+    doctorName = "Không rõ",
     appointmentDate,
     performedAt,
     tests = [],
   } = route.params || {};
 
-  console.log('LabHistoryDetail - Dữ liệu nhận được:', { patientName, doctorName, performedAt, totalTests: tests.length });
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+  const formatDate = (d) =>
+    new Date(d).toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'normal': return { text: 'BÌNH THƯỜNG', color: '#10B981' };
-      case 'abnormal': return { text: 'BẤT THƯỜNG', color: '#F59E0B' };
-      case 'critical': return { text: 'NGUY HIỂM', color: '#EF4444' };
-      default: return { text: 'HOÀN TẤT', color: '#64748B' };
+  const statusStyle = (s) => {
+    switch (s) {
+      case "normal":
+        return { text: "Bình thường", color: "#16A34A", bg: "#DCFCE7" };
+      case "abnormal":
+        return { text: "Bất thường", color: "#D97706", bg: "#FEF3C7" };
+      case "critical":
+        return { text: "Nguy hiểm", color: "#DC2626", bg: "#FEE2E2" };
+      default:
+        return { text: "Hoàn tất", color: "#475569", bg: "#F1F5F9" };
     }
   };
 
   const shareResults = async () => {
-    console.log('Đang chuẩn bị chia sẻ kết quả xét nghiệm...');
-    try {
-      let message = `KẾT QUẢ XÉT NGHIỆM\n`;
-      message += `Bệnh nhân: ${patientName}\n`;
-      message += `Bác sĩ chỉ định: ${doctorName}\n`;
-      message += `Thời gian làm: ${formatDate(performedAt)}\n\n`;
-      message += `══════════════════\n`;
+    console.log("📤 Share kết quả xét nghiệm...");
 
-      tests.forEach((t, i) => {
-        const status = getStatusText(t.status);
-        message += `${i + 1}. ${t.test_name}\n`;
-        message += `   Kết quả: ${t.result || '—'} ${t.unit || ''}\n`;
-        if (t.range) message += `   Ngưỡng: ${t.range}\n`;
-        if (t.note) message += `   Ghi chú: ${t.note}\n`;
-        message += `   → ${status.text}\n\n`;
-      });
+    let msg = `KẾT QUẢ XÉT NGHIỆM\n`;
+    msg += `Bệnh nhân: ${patientName}\n`;
+    msg += `Bác sĩ: ${doctorName}\n`;
+    msg += `Hoàn tất: ${formatDate(performedAt)}\n\n`;
 
-      console.log('Nội dung chia sẻ đã sẵn sàng');
-      await Share.share({ message });
-      console.log('Chia sẻ thành công');
-    } catch (err) {
-      console.error('Lỗi khi chia sẻ:', err);
-      Alert.alert('Lỗi', 'Không thể chia sẻ kết quả');
-    }
+    tests.forEach((t, i) => {
+      const s = statusStyle(t.status);
+      msg += `${i + 1}. ${t.test_name}\n`;
+      msg += `  Kết quả: ${t.result} ${t.unit || ""}\n`;
+      msg += `  Ngưỡng: ${t.range || "—"}\n`;
+      msg += `  Trạng thái: ${s.text}\n\n`;
+    });
+
+    Share.share({ message: msg });
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F0FDF4' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#10B981" />
+    <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
+      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
 
-      <LinearGradient colors={['#10B981', '#059669']} style={{ paddingTop: 50, padding: 20 }}>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff' }}>
-          Chi tiết kết quả xét nghiệm
-        </Text>
-        <Text style={{ fontSize: 18, color: '#ECFDF5', marginTop: 8 }}>
-          {patientName}
-        </Text>
+      <LinearGradient
+        colors={["#2563EB", "#3B82F6"]}
+        style={{
+          paddingTop: 50,
+          paddingBottom: 20,
+          paddingHorizontal: 16,
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={{
+              position: "absolute",
+              left: 0,
+              padding: 6,
+            }}
+          >
+            <Ionicons name="arrow-back" size={26} color="#fff" />
+          </TouchableOpacity>
+
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "700",
+              color: "white",
+            }}
+          >
+            Chi tiết xét nghiệm
+          </Text>
+        </View>
       </LinearGradient>
 
-      <View style={{ padding: 20, backgroundColor: '#fff', margin: 16, borderRadius: 20, elevation: 8 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={{ color: '#64748B', fontSize: 16 }}>Bác sĩ chỉ định</Text>
-          <Text style={{ fontWeight: 'bold', color: '#1E293B', fontSize: 16 }}>
-            {doctorName}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={{ color: '#64748B', fontSize: 16 }}>Ngày khám</Text>
-          <Text style={{ fontWeight: '600', color: '#1E293B' }}>
-            {appointmentDate ? new Date(appointmentDate).toLocaleDateString('vi-VN') : '—'}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ color: '#64748B', fontSize: 16 }}>Thời gian hoàn tất</Text>
-          <Text style={{ fontWeight: '600', color: '#10B981' }}>
-            {formatDate(performedAt)}
-          </Text>
-        </View>
+      <View
+        style={{
+          backgroundColor: "#fff",
+          margin: 16,
+          padding: 18,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: "#E5E7EB",
+          elevation: 5,
+        }}
+      >
+        {[
+          ["Bác sĩ chỉ định", doctorName],
+          [
+            "Ngày khám",
+            appointmentDate
+              ? new Date(appointmentDate).toLocaleDateString("vi-VN")
+              : "—",
+          ],
+          ["Hoàn tất lúc", formatDate(performedAt)],
+        ].map(([label, value], i) => (
+          <View
+            key={i}
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginBottom: i < 2 ? 10 : 0,
+            }}
+          >
+            <Text style={{ color: "#6B7280", fontSize: 15 }}>{label}</Text>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: "#111827" }}>
+              {value}
+            </Text>
+          </View>
+        ))}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16 }}>
         {tests.map((test, index) => {
-          const status = getStatusText(test.status);
+          const st = statusStyle(test.status);
+          console.log(`🧪 Load test ${index + 1}:`, test);
+
           return (
             <View
               key={index}
               style={{
-                backgroundColor: '#fff',
-                borderRadius: 20,
-                padding: 20,
+                backgroundColor: "#fff",
+                padding: 18,
+                borderRadius: 16,
                 marginBottom: 16,
-                elevation: 10,
-                borderLeftWidth: 6,
-                borderLeftColor: status.color,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                elevation: 3,
               }}
             >
-              <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1E293B', marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: "#111827",
+                  marginBottom: 12,
+                }}
+              >
                 {index + 1}. {test.test_name}
               </Text>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1D4ED8' }}>
-                  {test.result || '—'} {test.unit && <Text style={{ fontSize: 16, color: '#64748B' }}>{test.unit}</Text>}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "700",
+                    color: "#1D4ED8",
+                  }}
+                >
+                  {test.result}{" "}
+                  {test.unit && (
+                    <Text style={{ fontSize: 15, color: "#6B7280" }}>
+                      {test.unit}
+                    </Text>
+                  )}
                 </Text>
-                <View style={{ backgroundColor: status.color, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>{status.text}</Text>
+
+                <View
+                  style={{
+                    backgroundColor: st.bg,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: st.color,
+                      fontWeight: "700",
+                      fontSize: 13,
+                    }}
+                  >
+                    {st.text}
+                  </Text>
                 </View>
               </View>
 
               {test.range && (
-                <Text style={{ marginTop: 12, color: '#64748B', fontSize: 15 }}>
-                  Ngưỡng bình thường: <Text style={{ fontWeight: '600' }}>{test.range}</Text>
+                <Text
+                  style={{
+                    marginTop: 10,
+                    color: "#6B7280",
+                    fontSize: 14,
+                  }}
+                >
+                  Ngưỡng bình thường:{" "}
+                  <Text style={{ fontWeight: "600", color: "#111827" }}>
+                    {test.range}
+                  </Text>
                 </Text>
               )}
 
               {test.note && (
-                <Text style={{ marginTop: 12, color: '#DC2626', fontStyle: 'italic', fontSize: 15 }}>
+                <Text
+                  style={{
+                    marginTop: 10,
+                    color: "#DC2626",
+                    fontSize: 14,
+                    fontStyle: "italic",
+                  }}
+                >
                   Ghi chú: {test.note}
                 </Text>
               )}
@@ -148,21 +250,28 @@ export default function LabHistoryDetail() {
           );
         })}
 
-        <TouchableOpacity onPress={shareResults} style={{ marginVertical: 30 }}>
+        <TouchableOpacity onPress={shareResults} style={{ marginTop: 20 }}>
           <LinearGradient
-            colors={['#7C3AED', '#6D28D9']}
+            colors={["#7C3AED", "#6D28D9"]}
             style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingVertical: 20,
-              borderRadius: 30,
-              elevation: 15,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 18,
+              borderRadius: 26,
+              elevation: 8,
             }}
           >
-            <Ionicons name="share-social" size={32} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginLeft: 12 }}>
-              CHIA SẺ / IN KẾT QUẢ
+            <Ionicons name="share-social-outline" size={26} color="#fff" />
+            <Text
+              style={{
+                color: "#fff",
+                marginLeft: 10,
+                fontSize: 17,
+                fontWeight: "700",
+              }}
+            >
+              Chia sẻ / In kết quả
             </Text>
           </LinearGradient>
         </TouchableOpacity>

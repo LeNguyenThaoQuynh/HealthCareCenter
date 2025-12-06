@@ -15,12 +15,12 @@ import { supabase } from "../../api/supabase";
 import { getUserProfile } from "../../controllers/patient/userController";
 import {
   COLORS,
-  GRADIENTS,
   SPACING,
-  BORDER_RADIUS,
   FONT_SIZE,
+  BORDER_RADIUS,
   FONT_WEIGHT,
   SHADOWS,
+  GRADIENTS,
 } from "../../theme/theme";
 
 export default function DoctorHomeScreen() {
@@ -29,11 +29,16 @@ export default function DoctorHomeScreen() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const profile = await getUserProfile(user.id);
         setDisplayName(
-          profile?.full_name || profile?.name || user.email.split("@")[0] || "Bác sĩ"
+          profile?.full_name ||
+            profile?.name ||
+            user.email.split("@")[0] ||
+            "Bác sĩ"
         );
       }
     };
@@ -41,18 +46,46 @@ export default function DoctorHomeScreen() {
   }, []);
 
   const menu = [
-    { title: "Lịch làm việc", icon: "calendar-outline", screen: "DoctorAppointments", subtitle: "Xem lịch hôm nay" },
-    { title: "Hồ sơ cá nhân", icon: "person-outline", screen: "DoctorProfile", subtitle: "Thông tin & chứng chỉ" },
-    { title: "Bệnh nhân", icon: "people-outline", screen: "PatientList", subtitle: "Quản lý hồ sơ" },
-    { title: "Thống kê", icon: "bar-chart-outline", screen: "PatientStatistics", subtitle: "Doanh thu & hiệu suất" },
+    {
+      title: "Lịch làm việc",
+      icon: "calendar-outline",
+      screen: "DoctorAppointments",
+      subtitle: "Xem lịch hôm nay",
+    },
+    {
+      title: "Hồ sơ cá nhân",
+      icon: "person-outline",
+      screen: "DoctorProfile",
+      subtitle: "Thông tin & chứng chỉ",
+    },
+    {
+      title: "Bệnh nhân",
+      icon: "people-outline",
+      screen: "PatientList",
+      subtitle: "Quản lý hồ sơ",
+    },
+    {
+      title: "Thống kê",
+      icon: "bar-chart-outline",
+      screen: "PatientStatistics",
+      subtitle: "Doanh thu & hiệu suất",
+    },
   ];
 
   const scales = useRef(menu.map(() => new Animated.Value(1))).current;
 
   const animatePress = (index) => {
     Animated.sequence([
-      Animated.timing(scales[index], { toValue: 0.94, duration: 100, useNativeDriver: true }),
-      Animated.timing(scales[index], { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(scales[index], {
+        toValue: 0.94,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scales[index], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 
@@ -63,9 +96,16 @@ export default function DoctorHomeScreen() {
         <View style={styles.headerContent}>
           <Text style={styles.greeting}>Xin chào,</Text>
           <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.subtitle}>Chúc bạn một ngày làm việc hiệu quả!</Text>
+          <Text style={styles.subtitle}>
+            Chúc bạn một ngày làm việc hiệu quả!
+          </Text>
         </View>
-        <Ionicons name="heart-outline" size={110} color="#ffffff20" style={styles.decorIcon} />
+        <Ionicons
+          name="heart-outline"
+          size={110}
+          color="#ffffff20"
+          style={styles.decorIcon}
+        />
       </LinearGradient>
 
       {/* MENU GRID – NHỎ LẠI + KHÔNG ĐÈ LÊN HEADER */}
@@ -80,12 +120,18 @@ export default function DoctorHomeScreen() {
             }}
             style={styles.menuButton}
           >
-            <Animated.View style={[styles.menuCard, { transform: [{ scale: scales[i] }] }]}>
+            <Animated.View
+              style={[styles.menuCard, { transform: [{ scale: scales[i] }] }]}
+            >
               <LinearGradient
-                colors={i % 2 === 0 ? GRADIENTS.appointmentCard : GRADIENTS.healthTip}
+                colors={i % 2 === 0 ? GRADIENTS.appointment : GRADIENTS.health}
                 style={styles.iconCircle}
               >
-                <Ionicons name={item.icon} size={30} color={COLORS.textOnPrimary} />
+                <Ionicons
+                  name={item.icon}
+                  size={30}
+                  color={COLORS.textOnPrimary}
+                />
               </LinearGradient>
 
               <Text style={styles.menuTitle}>{item.title}</Text>
@@ -97,8 +143,14 @@ export default function DoctorHomeScreen() {
 
       {/* THÔNG BÁO NHẸ NHÀNG */}
       <View style={styles.notificationCard}>
-        <Ionicons name="notifications-outline" size={20} color={COLORS.accentTeal} />
-        <Text style={styles.notificationText}>Bạn có 3 bệnh nhân đang chờ khám</Text>
+        <Ionicons
+          name="notifications-outline"
+          size={20}
+          color={COLORS.accentTeal}
+        />
+        <Text style={styles.notificationText}>
+          Bạn có 3 bệnh nhân đang chờ khám
+        </Text>
       </View>
     </ScrollView>
   );
@@ -114,7 +166,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === "ios" ? 70 : 50,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xxl,   // giảm bớt để không tràn quá
+    paddingBottom: SPACING.xxl, // giảm bớt để không tràn quá
     borderBottomLeftRadius: BORDER_RADIUS.xxl,
     borderBottomRightRadius: BORDER_RADIUS.xxl,
     overflow: "hidden",
@@ -152,7 +204,7 @@ const styles = StyleSheet.create({
   // ĐÃ SỬA: KHÔNG DÙNG marginTop âm → KHÔNG ĐÈ HEADER NỮA
   menuGrid: {
     paddingHorizontal: SPACING.xl,
-    marginTop: SPACING.xl,        // CHỈ DÙNG marginTop dương
+    marginTop: SPACING.xl, // CHỈ DÙNG marginTop dương
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
@@ -208,13 +260,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECFEFF",
     borderRadius: BORDER_RADIUS.lg,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.accentTeal,
+    borderLeftColor: COLORS.accentCyan,
   },
 
   notificationText: {
     marginLeft: SPACING.md,
     fontSize: FONT_SIZE.md,
-    color: COLORS.accentTeal,
+    color: COLORS.accentCyan,
     fontWeight: FONT_WEIGHT.semibold,
   },
 });

@@ -9,7 +9,9 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  StatusBar,TouchableWithoutFeedback,Keyboard
+  StatusBar,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -22,7 +24,6 @@ export default function PendingInvoicesScreen() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -34,13 +35,15 @@ export default function PendingInvoicesScreen() {
     try {
       const { data, error } = await supabase
         .from("invoices")
-        .select(`
-          id, invoice_number, total_amount, exam_fee, test_fee, medicine_fee, issued_at, appointment_id,
+        .select(
+          `
+          id, invoice_number, total_amount, issued_at, appointment_id,
           appointments!appointment_id (
             date, user_id, patient_name, patient_phone,
             user_profiles:user_profiles!user_id (full_name, phone)
           )
-        `)
+        `
+        )
         .eq("status", "pending")
         .order("issued_at", { ascending: false });
 
@@ -48,7 +51,8 @@ export default function PendingInvoicesScreen() {
 
       const formatted = data.map((inv) => {
         const appt = inv.appointments || {};
-        const name = appt.user_profiles?.full_name || appt.patient_name || "Khách lẻ";
+        const name =
+          appt.user_profiles?.full_name || appt.patient_name || "Khách lẻ";
         const phone = appt.user_profiles?.phone || appt.patient_phone || "";
 
         return {
@@ -57,11 +61,10 @@ export default function PendingInvoicesScreen() {
           total: inv.total_amount || 0,
           date: inv.issued_at
             ? new Date(inv.issued_at).toLocaleDateString("vi-VN", {
-                weekday: "long",
                 day: "numeric",
                 month: "short",
               })
-            : "Chưa xác định",
+            : "",
           time: inv.issued_at
             ? new Date(inv.issued_at).toLocaleTimeString("vi-VN", {
                 hour: "2-digit",
@@ -112,20 +115,26 @@ export default function PendingInvoicesScreen() {
 
     const total = selectedInvoice.total;
     const tendered = parseInt(amountTendered || "0", 10);
-    const change = Math.max(0, tendered - total);
 
     if (paymentMethod === "cash" && tendered < total) {
-      Alert.alert("Thiếu tiền", `Còn thiếu ${(total - tendered).toLocaleString("vi-VN")} ₫`);
+      Alert.alert(
+        "Thiếu tiền",
+        `Còn thiếu ${(total - tendered).toLocaleString("vi-VN")} ₫`
+      );
       return;
     }
 
+    const change = Math.max(0, tendered - total);
+
     Alert.alert(
       "XÁC NHẬN THANH TOÁN",
-      `Bệnh nhân: ${selectedInvoice.patientName}\n` +
-        `Hóa đơn: ${selectedInvoice.invoice_number}\n` +
-        `Tổng tiền: ${total.toLocaleString("vi-VN")} ₫\n` +
+      `Bệnh nhân: ${selectedInvoice.patientName}\nHóa đơn: ${
+        selectedInvoice.invoice_number
+      }\nTổng: ${total.toLocaleString("vi-VN")} ₫\n` +
         (paymentMethod === "cash"
-          ? `Khách đưa: ${tendered.toLocaleString("vi-VN")} ₫\nThối lại: ${change.toLocaleString("vi-VN")} ₫\n`
+          ? `Khách đưa: ${tendered.toLocaleString(
+              "vi-VN"
+            )} ₫\nThối lại: ${change.toLocaleString("vi-VN")} ₫\n`
           : "") +
         `Phương thức: ${getMethodText(paymentMethod)}`,
       [
@@ -134,7 +143,9 @@ export default function PendingInvoicesScreen() {
           text: "ĐÃ NHẬN TIỀN",
           onPress: async () => {
             setModalVisible(false);
-            const { data: { user } } = await supabase.auth.getUser();
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
 
             const { error } = await supabase
               .from("invoices")
@@ -164,42 +175,62 @@ export default function PendingInvoicesScreen() {
   };
 
   const paymentMethods = [
-    { key: "cash", icon: "cash", label: "Tiền mặt", color: "#10b981" },
-    { key: "bank_transfer", icon: "account-balance", label: "Chuyển khoản", color: "#3b82f6" },
-    { key: "card", icon: "credit-card", label: "Thẻ", color: "#8b5cf6" },
+    { key: "cash", icon: "attach-money", label: "Tiền mặt", color: "#10b981" },
+    {
+      key: "bank_transfer",
+      icon: "account-balance",
+      label: "CK",
+      color: "#3b82f6",
+    },
+    { key: "card", icon: "credit-card", label: "Thẻ", color: "#06b6d4" },
     { key: "momo", icon: "phone-iphone", label: "MoMo", color: "#ec4899" },
-    { key: "zalo_pay", icon: "chat", label: "ZaloPay", color: "#06b6d4" },
-    { key: "insurance", icon: "local-hospital", label: "Bảo hiểm", color: "#f59e0b" },
+    { key: "zalo_pay", icon: "chat", label: "ZaloPay", color: "#0ea5e9" },
+    { key: "insurance", icon: "local-hospital", label: "BH", color: "#f59e0b" },
     { key: "free", icon: "card-giftcard", label: "Miễn phí", color: "#f97316" },
   ];
 
   if (loading && !refreshing) {
     return (
-      <LinearGradient colors={["#6366f1", "#8b5cf6"]} style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#FFF" />
+      <LinearGradient
+        colors={["#1e293b", "#0f172a"]}
+        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+      >
+        <ActivityIndicator size="large" color="#60a5fa" />
       </LinearGradient>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
-      <StatusBar barStyle="light-content" backgroundColor="#6366f1" />
+      <StatusBar barStyle="light-content" backgroundColor="#1e293b" />
 
       <LinearGradient
-        colors={["#6366f1", "#8b5cf6"]}
-        style={{ paddingTop: 50, paddingBottom: 30, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}
+        colors={["#1e293b", "#334155"]}
+        style={{ paddingTop: 50, paddingBottom: 16 }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            justifyContent: "space-between",
+          }}
+        >
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={28} color="#FFF" />
+            <Ionicons name="arrow-back" size={26} color="white" />
           </TouchableOpacity>
-          <View style={{ flex: 1, alignItems: "center", marginRight: 28 }}>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: "#FFF" }}>Thu Ngân</Text>
-          </View>
+          <Text style={{ fontSize: 20, fontWeight: "bold", color: "white" }}>
+            Thu Ngân
+          </Text>
+          <View style={{ width: 26 }} />
         </View>
-        <View style={{ alignItems: "center", marginTop: 16 }}>
-          <Text style={{ fontSize: 38, fontWeight: "900", color: "#FFF" }}>{invoices.length}</Text>
-          <Text style={{ fontSize: 17, color: "#E0E7FF" }}>Hóa đơn chờ thanh toán</Text>
+        <View style={{ alignItems: "center", marginTop: 12 }}>
+          <Text style={{ fontSize: 36, fontWeight: "900", color: "#60a5fa" }}>
+            {invoices.length}
+          </Text>
+          <Text style={{ fontSize: 14, color: "#cbd5e1", marginTop: 4 }}>
+            Hóa đơn đang chờ
+          </Text>
         </View>
       </LinearGradient>
 
@@ -207,212 +238,317 @@ export default function PendingInvoicesScreen() {
         data={invoices}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchPendingInvoices(); }} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchPendingInvoices();
+            }}
+          />
         }
-        contentContainerStyle={{ padding: 20, paddingTop: 10 }}
+        contentContainerStyle={{ padding: 12 }}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", marginTop: 100 }}>
+          <View style={{ alignItems: "center", marginTop: 80 }}>
             <Animated.View entering={ZoomIn.duration(600)}>
-              <MaterialIcons name="check-circle" size={100} color="#10b981" />
+              <MaterialIcons name="check-circle" size={80} color="#10b981" />
             </Animated.View>
-            <Text style={{ fontSize: 22, fontWeight: "bold", color: "#1e293b", marginTop: 20 }}>Không còn hóa đơn nào</Text>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                color: "#1e293b",
+                marginTop: 16,
+              }}
+            >
+              Không còn hóa đơn nào
+            </Text>
           </View>
         }
         renderItem={({ item, index }) => (
-          <Animated.View entering={FadeInDown.delay(index * 100)}>
+          <Animated.View entering={FadeInDown.delay(index * 60)}>
             <TouchableOpacity
-              activeOpacity={0.95}
+              activeOpacity={0.9}
               onPress={() => openPaymentModal(item)}
               style={{
-                backgroundColor: "#FFF",
-                borderRadius: 24,
-                padding: 22,
-                marginBottom: 16,
-                elevation: 16,
-                borderLeftWidth: 6,
+                backgroundColor: "white",
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 10,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderLeftWidth: 4,
                 borderLeftColor: "#f59e0b",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 3,
               }}
             >
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#1e293b" }}>{item.patientName}</Text>
-                  {item.phone ? (
-                    <Text style={{ fontSize: 15, color: "#64748b", marginTop: 4 }}>ĐT: {item.phone}</Text>
-                  ) : null}
-                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
-                    <Ionicons name="document-text" size={18} color="#6366f1" />
-                    <Text style={{ fontSize: 15, fontWeight: "600", color: "#6366f1", marginLeft: 6 }}>
-                      {item.invoice_number}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: "#64748b", marginTop: 6 }}>{item.date} • {item.time}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 26, fontWeight: "900", color: "#dc2626" }}>
-                    {item.total.toLocaleString("vi-VN")}₫
-                  </Text>
-                </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontSize: 16, fontWeight: "700", color: "#1e293b" }}
+                >
+                  {item.patientName}
+                </Text>
+                <Text style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+                  {item.invoice_number} • {item.date} {item.time}
+                </Text>
               </View>
+              <Text
+                style={{ fontSize: 20, fontWeight: "900", color: "#dc2626" }}
+              >
+                {item.total.toLocaleString("vi-VN")}₫
+              </Text>
             </TouchableOpacity>
           </Animated.View>
         )}
       />
 
-      {/* MODAL */}
-    {/* MODAL */}
-<Modal
-  visible={modalVisible}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setModalVisible(false)}
->
-  <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "flex-end" }}>
-      <TouchableWithoutFeedback>
-        <View style={{ backgroundColor: "#FFF", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30 }}>
-          {selectedInvoice && (() => {
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.8)",
+              justifyContent: "flex-end",
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: "white",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 40,
+                maxHeight: "88%",
+              }}
+            >
+              <View style={{ alignItems: "flex-end", marginBottom: -10 }}>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close-circle" size={32} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
 
-            const total = selectedInvoice.total;
-            const tendered = parseInt(amountTendered || "0", 10);
-            const isInsufficient = paymentMethod === "cash" && tendered < total;
-            const change = tendered - total;
-
-            return (
-              <>
-                <Text style={{ fontSize: 24, fontWeight: "700", textAlign: "center", marginBottom: 10 }}>
-                  Thanh toán hóa đơn
-                </Text>
-
-                <LinearGradient colors={["#fef3c7", "#fde68a"]} style={{ padding: 20, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 28, fontWeight: "900", color: "#dc2626" }}>
-                    {total.toLocaleString("vi-VN")} ₫
+              {selectedInvoice && (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      color: "#1e293b",
+                    }}
+                  >
+                    Thanh toán hóa đơn
                   </Text>
-                </LinearGradient>
+                  <Text
+                    style={{
+                      fontSize: 28,
+                      fontWeight: "900",
+                      textAlign: "center",
+                      color: "#dc2626",
+                      marginVertical: 8,
+                    }}
+                  >
+                    {selectedInvoice.total.toLocaleString("vi-VN")} ₫
+                  </Text>
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: 14,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {selectedInvoice.patientName} •{" "}
+                    {selectedInvoice.invoice_number}
+                  </Text>
 
-                {/* PAYMENT METHOD */}
-                <Text style={{ marginTop: 24, fontSize: 17, fontWeight: "700" }}>Phương thức</Text>
-
-                <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 12 }}>
-                  {paymentMethods.map((m) => (
-                    <TouchableOpacity
-                      key={m.key}
-                      onPress={() => {
-                        setPaymentMethod(m.key);
-                        if (m.key !== "cash") {
-                          setAmountTendered(total.toString());
-                          Keyboard.dismiss();
-                        }
-                      }}
-                      style={{
-                        padding: 16,
-                        borderRadius: 18,
-                        backgroundColor: paymentMethod === m.key ? m.color : "#f1f5f9",
-                        minWidth: 100,
-                        alignItems: "center",
-                      }}
-                    >
-                      <MaterialIcons name={m.icon} size={28} color={paymentMethod === m.key ? "#FFF" : "#475569"} />
-                      <Text style={{ marginTop: 6, fontWeight: "600", color: paymentMethod === m.key ? "#FFF" : "#475569" }}>
-                        {m.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* CASH INPUT */}
-                {paymentMethod === "cash" && (
-                  <>
-                    <Text style={{ marginTop: 24, fontSize: 17, fontWeight: "700" }}>Số tiền khách đưa</Text>
-                    <TextInput
-                      style={{
-                        marginTop: 10,
-                        backgroundColor: "#f0fdf4",
-                        borderRadius: 16,
-                        padding: 20,
-                        fontSize: 28,
-                        fontWeight: "900",
-                        textAlign: "center",
-                      }}
-                      keyboardType="number-pad"
-                      value={amountTendered}
-                      onChangeText={(t) => setAmountTendered(t.replace(/[^0-9]/g, ""))}
-                      placeholder="0"
-                      returnKeyType="done"
-                      blurOnSubmit={true}
-                      onSubmitEditing={Keyboard.dismiss}
-                    />
-
-                    {amountTendered !== "" && (
-                      <View
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      justifyContent: "center",
+                      gap: 8,
+                      marginVertical: 8,
+                    }}
+                  >
+                    {paymentMethods.map((m) => (
+                      <TouchableOpacity
+                        key={m.key}
+                        onPress={() => {
+                          setPaymentMethod(m.key);
+                          if (m.key !== "cash")
+                            setAmountTendered(selectedInvoice.total.toString());
+                        }}
                         style={{
-                          marginTop: 20,
-                          padding: 20,
-                          backgroundColor: isInsufficient ? "#fee2e2" : "#f0fdf4",
-                          borderRadius: 16,
+                          padding: 10,
+                          borderRadius: 12,
+                          backgroundColor:
+                            paymentMethod === m.key ? m.color : "#f1f5f9",
+                          width: 64,
                           alignItems: "center",
                         }}
                       >
-                        <Text style={{ fontSize: 18, fontWeight: "700" }}>
-                          {isInsufficient ? "Còn thiếu" : "Tiền thối lại"}
+                        <MaterialIcons
+                          name={m.icon}
+                          size={22}
+                          color={paymentMethod === m.key ? "white" : "#475569"}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            marginTop: 3,
+                            fontWeight: "600",
+                            color:
+                              paymentMethod === m.key ? "white" : "#475569",
+                          }}
+                        >
+                          {m.label}
                         </Text>
-                        <Text style={{ fontSize: 36, fontWeight: "900" }}>
-                          {Math.abs(change).toLocaleString("vi-VN")} ₫
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-                {/* NOTES */}
-                <Text style={{ marginTop: 24, fontSize: 17, fontWeight: "700" }}>Ghi chú</Text>
-                <TextInput
-                  style={{
-                    marginTop: 8,
-                    borderWidth: 1,
-                    borderColor: "#e2e8f0",
-                    borderRadius: 12,
-                    padding: 14,
-                    fontSize: 15,
-                  }}
-                  placeholder="VD: Giảm giá khách quen..."
-                  value={notes}
-                  onChangeText={setNotes}
-                  returnKeyType="done"
-                  blurOnSubmit={true}
-                  onSubmitEditing={Keyboard.dismiss}
-                />
+                  {paymentMethod === "cash" && (
+                    <View style={{ marginTop: 12 }}>
+                      <TextInput
+                        style={{
+                          backgroundColor: "#f0fdf4",
+                          borderRadius: 14,
+                          padding: 16,
+                          fontSize: 32,
+                          fontWeight: "900",
+                          textAlign: "center",
+                          color: "#166534",
+                          borderWidth: 2,
+                          borderColor: "#86efac",
+                        }}
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        value={
+                          amountTendered
+                            ? parseInt(amountTendered).toLocaleString("vi-VN")
+                            : ""
+                        }
+                        onChangeText={(text) => {
+                          const num = text.replace(/[^0-9]/g, "");
+                          setAmountTendered(num);
+                        }}
+                        autoFocus
+                      />
 
-                {/* CONFIRM */}
-                <TouchableOpacity
-                  onPress={() => {
-                    Keyboard.dismiss(); // 👉 bắt buộc phải có ở đây
-                    confirmPayment();
-                  }}
-                  disabled={isInsufficient}
-                  style={{
-                    marginTop: 28,
-                    backgroundColor: isInsufficient ? "#94a3b8" : "#10b981",
-                    paddingVertical: 20,
-                    borderRadius: 20,
-                  }}
-                >
-                  <Text style={{ textAlign: "center", fontSize: 20, fontWeight: "800", color: "#FFF" }}>
-                    XÁC NHẬN ĐÃ NHẬN TIỀN
-                  </Text>
-                </TouchableOpacity>
+                      {amountTendered !== "" && (
+                        <View
+                          style={{
+                            marginTop: 12,
+                            padding: 14,
+                            backgroundColor:
+                              parseInt(amountTendered) < selectedInvoice.total
+                                ? "#fee2e2"
+                                : "#ecfdf5",
+                            borderRadius: 12,
+                            alignItems: "center",
+                            borderWidth: 2,
+                            borderColor:
+                              parseInt(amountTendered) < selectedInvoice.total
+                                ? "#fca5a5"
+                                : "#86efac",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: "700",
+                              color: "#1f2937",
+                            }}
+                          >
+                            {parseInt(amountTendered) < selectedInvoice.total
+                              ? "Còn thiếu"
+                              : "Tiền thối"}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 28,
+                              fontWeight: "900",
+                              color:
+                                parseInt(amountTendered) < selectedInvoice.total
+                                  ? "#dc2626"
+                                  : "#16a34a",
+                            }}
+                          >
+                            {Math.abs(
+                              selectedInvoice.total -
+                                parseInt(amountTendered || 0)
+                            ).toLocaleString("vi-VN")}{" "}
+                            ₫
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
 
-                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setModalVisible(false); }} style={{ marginTop: 12 }}>
-                  <Text style={{ textAlign: "center", color: "#64748b", fontWeight: "600" }}>Hủy</Text>
-                </TouchableOpacity>
-              </>
-            );
-          })()}
-        </View>
-      </TouchableWithoutFeedback>
-    </View>
-  </TouchableWithoutFeedback>
-</Modal>
+                  <TextInput
+                    style={{
+                      marginTop: 16,
+                      borderWidth: 1,
+                      borderColor: "#e2e8f0",
+                      borderRadius: 10,
+                      padding: 12,
+                      fontSize: 14,
+                      backgroundColor: "#f8fafc",
+                      maxHeight: 80,
+                    }}
+                    placeholder="Ghi chú (tùy chọn)"
+                    value={notes}
+                    onChangeText={setNotes}
+                    multiline
+                  />
 
+                  <TouchableOpacity
+                    onPress={confirmPayment}
+                    disabled={
+                      paymentMethod === "cash" &&
+                      amountTendered !== "" &&
+                      parseInt(amountTendered) < selectedInvoice.total
+                    }
+                    style={{
+                      marginTop: 20,
+                      backgroundColor:
+                        paymentMethod === "cash" &&
+                        amountTendered !== "" &&
+                        parseInt(amountTendered) < selectedInvoice.total
+                          ? "#94a3b8"
+                          : "#10b981",
+                      paddingVertical: 16,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        textAlign: "center",
+                        color: "white",
+                        fontSize: 17,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ĐÃ NHẬN TIỀN
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }

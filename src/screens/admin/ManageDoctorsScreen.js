@@ -1,4 +1,3 @@
-// src/screens/admin/ManageDoctorsScreen.js
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
@@ -34,7 +33,8 @@ export default function ManageDoctorsScreen() {
     try {
       const { data, error } = await supabase
         .from("doctors")
-        .select(`
+        .select(
+          `
           id,
           name,
           room_number,
@@ -42,12 +42,13 @@ export default function ManageDoctorsScreen() {
           bio,
           specialization,
           department_name
-        `)
+        `
+        )
         .order("name", { ascending: true });
 
       if (error) throw error;
 
-      const formatted = (data || []).map(doc => ({
+      const formatted = (data || []).map((doc) => ({
         id: doc.id,
         full_name: doc.name?.trim() || "Bác sĩ",
         room_number: doc.room_number || null,
@@ -57,8 +58,8 @@ export default function ManageDoctorsScreen() {
         specializations: doc.specialization
           ? doc.specialization
               .split(",")
-              .map(s => s.trim())
-              .filter(s => s.length > 0)
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0)
           : [],
       }));
 
@@ -83,12 +84,17 @@ export default function ManageDoctorsScreen() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return doctors;
 
-    return doctors.filter(doc => {
+    return doctors.filter((doc) => {
       const name = doc.full_name.toLowerCase();
       const specs = doc.specializations.join(" ").toLowerCase();
       const room = doc.room_number ? String(doc.room_number) : "";
       const dept = doc.department_name.toLowerCase();
-      return name.includes(q) || specs.includes(q) || room.includes(q) || dept.includes(q);
+      return (
+        name.includes(q) ||
+        specs.includes(q) ||
+        room.includes(q) ||
+        dept.includes(q)
+      );
     });
   }, [doctors, searchQuery]);
 
@@ -115,12 +121,16 @@ export default function ManageDoctorsScreen() {
       <TouchableOpacity
         activeOpacity={0.85}
         style={styles.cardWrapper}
-        onPress={() => navigation.navigate("DoctorDetail", { doctorId: item.id })}
+        onPress={() =>
+          navigation.navigate("DoctorDetail", { doctorId: item.id })
+        }
       >
         <View style={styles.card}>
-          
           {/* Avatar */}
-          <LinearGradient colors={GRADIENTS.primaryButton} style={styles.avatar}>
+          <LinearGradient
+            colors={GRADIENTS.primaryButton}
+            style={styles.avatar}
+          >
             <Text style={styles.avatarLetter}>{avatarLetter}</Text>
           </LinearGradient>
 
@@ -140,7 +150,9 @@ export default function ManageDoctorsScreen() {
             {item.department_name !== "Chưa phân khoa" && (
               <View style={styles.row}>
                 <Ionicons name="layers" size={14} color={COLORS.success} />
-                <Text style={styles.department}>Khoa: {item.department_name}</Text>
+                <Text style={styles.department}>
+                  Khoa: {item.department_name}
+                </Text>
               </View>
             )}
           </View>
@@ -174,13 +186,19 @@ export default function ManageDoctorsScreen() {
       <StatusBar barStyle="light-content" />
 
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("AdminHome")}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Quản lý bác sĩ</Text>
 
-        <TouchableOpacity onPress={() => navigation.navigate("AdminHome")} style={styles.homeBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("AdminHome")}
+          style={styles.homeBtn}
+        >
           <Ionicons name="home" size={24} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>
@@ -238,7 +256,10 @@ export default function ManageDoctorsScreen() {
         onPress={() => navigation.navigate("CreateDoctorAccount")}
         activeOpacity={0.9}
       >
-        <LinearGradient colors={GRADIENTS.primaryButton} style={styles.fabGradient}>
+        <LinearGradient
+          colors={GRADIENTS.primaryButton}
+          style={styles.fabGradient}
+        >
           <Ionicons name="add" size={32} color="#FFF" />
         </LinearGradient>
       </TouchableOpacity>
@@ -259,8 +280,16 @@ const styles = {
     borderBottomLeftRadius: BORDER_RADIUS.xxxl,
   },
 
-  backBtn: { padding: 10, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 25 },
-  homeBtn: { padding: 10, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 25 },
+  backBtn: {
+    padding: 10,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 25,
+  },
+  homeBtn: {
+    padding: 10,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 25,
+  },
 
   headerTitle: { fontSize: 23, fontWeight: "bold", color: "#FFF" },
 
@@ -276,7 +305,12 @@ const styles = {
     ...SHADOWS.card,
   },
 
-  searchInput: { flex: 1, marginLeft: 12, fontSize: 16, color: COLORS.textPrimary },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
 
   // ==========================
   //      CARD STYLE ĐẸP
@@ -369,9 +403,24 @@ const styles = {
   },
 
   empty: { alignItems: "center", marginTop: 100, paddingHorizontal: 40 },
-  emptyText: { fontSize: 20, fontWeight: "600", color: COLORS.textSecondary, marginTop: 20 },
-  emptySub: { fontSize: 15, color: "#94A3B8", marginTop: 8, textAlign: "center" },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    marginTop: 20,
+  },
+  emptySub: {
+    fontSize: 15,
+    color: "#94A3B8",
+    marginTop: 8,
+    textAlign: "center",
+  },
 
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+  },
   loadingText: { marginTop: 16, fontSize: 16, color: COLORS.textSecondary },
 };

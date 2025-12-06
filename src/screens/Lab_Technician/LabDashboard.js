@@ -1,44 +1,118 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import React from "react";
+import { View, Text, TouchableOpacity, StatusBar } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { supabase } from "../../api/supabase";
+import theme from "../../theme/theme";
 
 export default function LabDashboard({ navigation }) {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Login" }],
+    });
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F0FDF4' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#10B981" />
-      
-      <LinearGradient colors={['#10B981', '#059669']} style={{ paddingTop: 50, padding: 20 }}>
-        <Text style={{ fontSize: 26, fontWeight: 'bold', color: '#fff' }}>Phòng Xét Nghiệm</Text>
-        <Text style={{ fontSize: 16, color: '#ECFDF5', marginTop: 8 }}>Chào mừng quay lại!</Text>
+    <View style={{ flex: 1, backgroundColor: theme.COLORS.surfaceSoft }}>
+      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+
+      <LinearGradient
+        colors={["#2563EB", "#3B82F6"]}
+        style={{
+          paddingTop: theme.statusBarHeight,
+          paddingHorizontal: theme.SPACING.lg,
+          paddingBottom: theme.SPACING.xl,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        <Text
+          style={{
+            fontSize: theme.FONT_SIZE.header,
+            fontWeight: theme.FONT_WEIGHT.bold,
+            color: "#fff",
+          }}
+        >
+          Phòng Xét Nghiệm
+        </Text>
+
+        <TouchableOpacity onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={28} color="#fff" />
+        </TouchableOpacity>
       </LinearGradient>
 
-      <View style={{ padding: 20 }}>
+      <View style={{ padding: theme.SPACING.lg }}>
         <TouchableOpacity
-          onPress={() => {
-            console.log('Điều hướng tới: Xét nghiệm cần làm (LabPendingTests)');
-            navigation.navigate('LabPendingTests');
+          onPress={() => navigation.navigate("LabPendingTests")}
+          style={{
+            backgroundColor: theme.COLORS.surface,
+            padding: theme.SPACING.xl,
+            borderRadius: theme.BORDER_RADIUS.xl,
+            marginBottom: theme.SPACING.lg,
+            flexDirection: "row",
+            alignItems: "center",
+            ...theme.SHADOWS.floating,
           }}
-          style={{ backgroundColor: '#fff', padding: 24, borderRadius: 20, marginBottom: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}
         >
-          <Ionicons name="flask" size={40} color="#10B981" style={{ marginRight: 20 }} />
+          <Ionicons
+            name="flask"
+            size={40}
+            color={theme.COLORS.success}
+            style={{ marginRight: theme.SPACING.lg }}
+          />
           <View>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Xét nghiệm cần làm</Text>
-            <Text style={{ color: '#64748B' }}>Nhấn để nhập kết quả</Text>
+            <Text
+              style={{
+                fontSize: theme.FONT_SIZE.xl,
+                fontWeight: theme.FONT_WEIGHT.bold,
+                color: theme.COLORS.textPrimary,
+              }}
+            >
+              Xét nghiệm cần làm
+            </Text>
+            <Text style={{ color: theme.COLORS.textSecondary }}>
+              Nhấn để nhập kết quả
+            </Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => {
-            console.log('Điều hướng tới: Lịch sử kết quả (LabHistory)');
-            navigation.navigate('LabHistory');
+          onPress={() => navigation.navigate("LabHistory")}
+          style={{
+            backgroundColor: theme.COLORS.surface,
+            padding: theme.SPACING.xl,
+            borderRadius: theme.BORDER_RADIUS.xl,
+            flexDirection: "row",
+            alignItems: "center",
+            ...theme.SHADOWS.floating,
           }}
-          style={{ backgroundColor: '#fff', padding: 24, borderRadius: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}
         >
-          <Ionicons name="document-text" size={40} color="#3B82F6" style={{ marginRight: 20 }} />
+          <Ionicons
+            name="document-text"
+            size={40}
+            color={theme.COLORS.accentBlue}
+            style={{ marginRight: theme.SPACING.lg }}
+          />
           <View>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Lịch sử kết quả</Text>
-            <Text style={{ color: '#64748B' }}>Xem lại kết quả đã nhập</Text>
+            <Text
+              style={{
+                fontSize: theme.FONT_SIZE.xl,
+                fontWeight: theme.FONT_WEIGHT.bold,
+                color: theme.COLORS.textPrimary,
+              }}
+            >
+              Lịch sử kết quả
+            </Text>
+            <Text style={{ color: theme.COLORS.textSecondary }}>
+              Xem lại kết quả đã nhập
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
