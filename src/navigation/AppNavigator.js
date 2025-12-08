@@ -1,4 +1,3 @@
-// navigation/AppNavigator.js
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 
@@ -18,6 +17,8 @@ import ManagePatientsScreen from "../screens/admin/ManagePatientsScreen";
 import DoctorDetailScreen from "../screens/admin/DoctorDetailScreen";
 import CreateServiceScreen from "../screens/admin/CreateServiceScreen";
 import ManageServicesScreen from "../screens/admin/ManageServicesScreen";
+import EditDoctorScreen from "../screens/admin/EditDoctorScreen";
+import EditServiceScreen from "../screens/admin/EditServiceScreen";
 // === DOCTOR ===
 import DoctorHomeScreen from "../screens/doctor/DoctorHomeScreen";
 import DoctorAppointmentsScreen from "../screens/doctor/DoctorAppointmentsScreen";
@@ -71,6 +72,8 @@ export default function AppNavigator() {
       <Stack.Screen name="CreateService" component={CreateServiceScreen} />
       <Stack.Screen name="ManageServices" component={ManageServicesScreen} />
       <Stack.Screen name="RevenueStats" component={RevenueStatsScreen} />
+      <Stack.Screen name="EditDoctor" component={EditDoctorScreen} />
+      <Stack.Screen name="EditService" component={EditServiceScreen} />
 
       {/* DOCTOR */}
       <Stack.Screen name="DoctorHome" component={DoctorHomeScreen} />

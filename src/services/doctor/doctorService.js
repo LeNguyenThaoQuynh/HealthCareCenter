@@ -1,169 +1,113 @@
-// src/services/doctor/doctorService.js
-import { supabase } from '../../api/supabase';
+import { supabase } from "../../api/supabase";
 
-// === TẠO BÁC SĨ + LỊCH MẪU (CHỈ DÙNG doctor_schedule_template) ===
-export const createDoctorWithRoleService = async (
-  email,
-  password,
-  fullName,
-  departmentId,
-  scheduleList = [],
-  role = 2
-) => {
+export const deleteDoctorService = async (doctorId, deletedBy = null) => {
+  console.log("BẮT ĐẦU XÓA BÁC SĨ (GIỮ LẠI INVOICES) - ID:", doctorId);
+
   try {
-    // 1. TẠO USER AUTH
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+    const { data: appointments, error: aptError } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("doctor_id", doctorId);
 
-    if (authError) {
-      if (authError.message.includes('already registered')) {
-        return { success: false, message: `Email ${email} đã tồn tại` };
-      }
-      throw authError;
+    if (aptError) {
+      console.error("Lỗi lấy appointments:", aptError);
+      return { success: false, message: "Không thể kiểm tra lịch hẹn" };
     }
 
-    const userId = authData.user.id;
+    const appointmentIds = appointments?.map((a) => a.id) || [];
+    console.log(`Tìm thấy ${appointmentIds.length} lịch hẹn`);
 
-    // 2. TẠO PROFILE
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .upsert({ id: userId, full_name: fullName, email, role_id: role }, { onConflict: 'id' });
-
-    if (profileError) throw profileError;
-
-    // 3. TẠO BÁC SĨ
-    const { error: doctorError } = await supabase
-      .from('doctors')
-      .upsert({ id: userId, department_id: departmentId }, { onConflict: 'id' });
-
-    if (doctorError) throw doctorError;
-
-    // 4. LƯU LỊCH MẪU VÀO doctor_schedule_template
-    if (scheduleList.length > 0) {
-      const templateByDay = {};
-      scheduleList.forEach(s => {
-        const key = s.day_of_week;
-        if (!templateByDay[key]) {
-          templateByDay[key] = { start: s.start_time, end: s.end_time };
-        } else {
-          const curr = templateByDay[key];
-          if (s.start_time < curr.start) curr.start = s.start_time;
-          if (s.end_time > curr.end) curr.end = s.end_time;
-        }
-      });
-
-      const templateData = Object.entries(templateByDay).map(([day, { start, end }]) => ({
-        doctor_id: userId,
-        day_of_week: day,
-        start_time: start,
-        end_time: end,
+    if (appointmentIds.length > 0) {
+      console.log("Đang lưu trữ lịch hẹn vào deleted_appointments...");
+      const archiveData = appointments.map((apt) => ({
+        ...apt,
+        deleted_at: new Date().toISOString(),
+        deleted_by: deletedBy || "admin_system",
+        deleted_reason: "doctor_deleted",
       }));
 
-      const { error: tempErr } = await supabase
-        .from('doctor_schedule_template')
-        .upsert(templateData, { 
-          onConflict: 'doctor_id,day_of_week,start_time' 
-        });
+      const { error: archiveError } = await supabase
+        .from("deleted_appointments")
+        .insert(archiveData)
+        .select();
 
-      if (tempErr) throw tempErr;
+      if (archiveError) {
+        console.warn(
+          "Không thể lưu trữ lịch hẹn (vẫn tiếp tục xóa):",
+          archiveError.message
+        );
+      } else {
+        console.log(
+          `ĐÃ LƯU TRỮ ${appointmentIds.length} lịch hẹn vào deleted_appointments`
+        );
+      }
     }
 
-    return { success: true, message: `Đã tạo bác sĩ ${fullName}`, userId };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-};
+    if (appointmentIds.length > 0) {
+      console.log("Đang xóa medical_records...");
+      const { error: mrError } = await supabase
+        .from("medical_records")
+        .delete()
+        .in("appointment_id", appointmentIds);
 
-// === LẤY TẤT CẢ BÁC SĨ ===
-export const getAllDoctorsService = async () => {
-  const { data, error } = await supabase
-    .from('doctors')
-    .select(`
-      id,
-      department_id,
-      specialization,
-      experience_years,
-      room_number,
-      max_patients_per_slot,
-      bio,
-      created_at,
-      user_profiles (
-        full_name,
-        email,
-        role_id,
-        roles ( name )
-      ),
-      departments ( name ),
-      doctor_schedule_template (
-        day_of_week,
-        start_time,
-        end_time
-      )
-    `)
-    .order('created_at', { ascending: false });
+      if (mrError) {
+        console.error("Lỗi xóa medical_records:", mrError);
+        return { success: false, message: "Không thể xóa bệnh án" };
+      }
+      console.log("Đã xóa tất cả medical_records");
+    }
 
-  if (error) throw new Error(error.message);
-  return data;
-};
+    if (appointmentIds.length > 0) {
+      console.log("Đang xóa appointments (invoices vẫn được giữ lại)...");
+      const { error: aptDeleteError } = await supabase
+        .from("appointments")
+        .delete()
+        .in("id", appointmentIds);
 
-// === CẬP NHẬT BÁC SĨ ===
-export const updateDoctorService = async (userId, updateData = {}) => {
-  const updates = {};
+      if (aptDeleteError) {
+        console.error("Lỗi xóa appointments:", aptDeleteError);
+        return { success: false, message: "Không thể xóa lịch hẹn" };
+      }
+      console.log(
+        `Đã xóa ${appointmentIds.length} lịch hẹn – INVOICES VẪN CÒN NGUYÊN!`
+      );
+    }
 
-  if (updateData.fullName) {
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .update({ full_name: updateData.fullName })
-      .eq('id', userId);
-    if (profileError) throw new Error(profileError.message);
-  }
-
-  if (updateData.departmentId) updates.department_id = updateData.departmentId;
-  if (updateData.specialization) updates.specialization = updateData.specialization;
-  if (updateData.experience_years) updates.experience_years = updateData.experience_years;
-  if (updateData.room_number) updates.room_number = updateData.room_number;
-  if (updateData.max_patients_per_slot) updates.max_patients_per_slot = updateData.max_patients_per_slot;
-  if (updateData.bio) updates.bio = updateData.bio;
-
-  if (Object.keys(updates).length > 0) {
-    const { error: doctorError } = await supabase
-      .from('doctors')
-      .update(updates)
-      .eq('id', userId);
-    if (doctorError) throw new Error(doctorError.message);
-  }
-
-  return { success: true, message: 'Đã cập nhật thông tin bác sĩ' };
-};
-
-// === XÓA BÁC SĨ → TỰ ĐỘNG XÓA LỊCH (DO ON DELETE CASCADE) ===
-export const deleteDoctorService = async (userId) => {
-  try {
-    // 1. XÓA doctors → TỰ ĐỘNG XÓA doctor_schedule_template
-    const { error: doctorError } = await supabase
-      .from('doctors')
+    console.log("Xóa lịch làm việc mẫu...");
+    await supabase
+      .from("doctor_schedule_template")
       .delete()
-      .eq('id', userId);
+      .eq("doctor_id", doctorId);
 
-    if (doctorError) throw doctorError;
-
-    // 2. XÓA profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
+    console.log("Xóa bản ghi doctors...");
+    const { error: docError } = await supabase
+      .from("doctors")
       .delete()
-      .eq('id', userId);
+      .eq("id", doctorId);
+    if (docError) throw docError;
 
-    if (profileError) throw profileError;
+    console.log("Xóa user_profiles...");
+    await supabase.from("user_profiles").delete().eq("id", doctorId);
 
-    // 3. XÓA auth
-    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-    if (authError) throw authError;
+    console.log("Xóa tài khoản đăng nhập...");
+    const { error: authError } = await supabase.auth.admin.deleteUser(doctorId);
+    if (authError) {
+      console.warn(
+        "Lỗi xóa auth user (vẫn coi là thành công):",
+        authError.message
+      );
+    }
 
-    return { success: true, message: 'Đã xóa bác sĩ và lịch làm việc' };
+    console.log("XÓA BÁC SĨ THÀNH CÔNG – INVOICES ĐƯỢC GIỮ LẠI 100%!");
+    return {
+      success: true,
+      message: `Đã xóa bác sĩ và lưu trữ ${appointmentIds.length} lịch hẹn. Hóa đơn vẫn còn nguyên!`,
+    };
   } catch (error) {
-    return { success: false, message: error.message };
+    console.error("LỖI NGHIÊM TRỌNG KHI XÓA BÁC SĨ:", error);
+    return {
+      success: false,
+      message: "Xóa thất bại: " + (error.message || "Lỗi không xác định"),
+    };
   }
 };

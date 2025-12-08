@@ -27,19 +27,31 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         const profile = await getUserProfile(user.id);
-        setDisplayName(profile?.full_name || profile?.name || user.email.split("@")[0]);
+        setDisplayName(
+          profile?.full_name || profile?.name || user.email.split("@")[0]
+        );
       }
     };
     fetch();
   }, []);
 
   const menu = [
-    { title: "Đặt khám", icon: "calendar-outline", screen: "BookingOptionsScreen" },
+    {
+      title: "Đặt khám",
+      icon: "calendar-outline",
+      screen: "BookingOptionsScreen",
+    },
     { title: "Lịch sử khám", icon: "time-outline", screen: "HistoryScreen" },
-    { title: "Bệnh án", icon: "document-text-outline", screen: "MedicalRecordScreen" },
+    {
+      title: "Bệnh án",
+      icon: "document-text-outline",
+      screen: "MedicalRecordScreen",
+    },
     { title: "Hồ sơ", icon: "person-outline", screen: "ProfileScreen" },
     {
       title: "Theo dõi",
@@ -53,8 +65,16 @@ export default function HomeScreen() {
 
   const animatePress = (index) => {
     Animated.sequence([
-      Animated.timing(scales[index], { toValue: 0.95, duration: 100, useNativeDriver: true }),
-      Animated.timing(scales[index], { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(scales[index], {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scales[index], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 
@@ -81,7 +101,11 @@ export default function HomeScreen() {
 
   const renderBanner = ({ item }) => (
     <View style={styles.bannerItem}>
-      <Image source={item.image} style={styles.bannerImage} resizeMode="cover" />
+      <Image
+        source={item.image}
+        style={styles.bannerImage}
+        resizeMode="contain"
+      />
     </View>
   );
 
@@ -111,14 +135,20 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
         <LinearGradient colors={["#2563EB", "#3B82F6"]} style={styles.header}>
           <Text style={styles.greeting}>Xin chào,</Text>
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.subtitle}>Chăm sóc sức khỏe của bạn hôm nay</Text>
         </LinearGradient>
 
-        <TouchableOpacity style={styles.infoBox} onPress={() => navigation.navigate("HistoryScreen")}>
+        <TouchableOpacity
+          style={styles.infoBox}
+          onPress={() => navigation.navigate("HistoryScreen")}
+        >
           <Ionicons name="notifications-outline" size={22} color="#2563EB" />
           <Text style={styles.infoText}>Bạn có lịch khám sắp tới</Text>
           <Ionicons name="chevron-forward" size={22} color="#2563EB" />
@@ -136,7 +166,12 @@ export default function HomeScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Animated.View style={[styles.itemInner, { transform: [{ scale: scales[i] }] }]}>
+              <Animated.View
+                style={[
+                  styles.itemInner,
+                  { transform: [{ scale: scales[i] }] },
+                ]}
+              >
                 <View style={styles.iconCircle}>
                   <Ionicons name={item.icon} size={28} color="#2563EB" />
                 </View>
@@ -175,7 +210,8 @@ export default function HomeScreen() {
                   style={[
                     styles.dot,
                     {
-                      backgroundColor: currentBannerIndex === index ? "#2563EB" : "#CBD5E1",
+                      backgroundColor:
+                        currentBannerIndex === index ? "#2563EB" : "#CBD5E1",
                       width: currentBannerIndex === index ? 24 : 8,
                     },
                   ]}
@@ -190,7 +226,9 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.newsCard}>
             <Ionicons name="heart" size={26} color="#EF4444" />
             <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.newsHeadline}>10 mẹo giữ sức khỏe mùa đông</Text>
+              <Text style={styles.newsHeadline}>
+                10 mẹo giữ sức khỏe mùa đông
+              </Text>
               <Text style={styles.newsDate}>18/11/2025</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#94A3B8" />
@@ -217,20 +255,30 @@ export default function HomeScreen() {
                   navigation.navigate(opt.screen);
                 }}
               >
-                <View style={[styles.modalIconCircle, { backgroundColor: opt.color + "20" }]}>
+                <View
+                  style={[
+                    styles.modalIconCircle,
+                    { backgroundColor: opt.color + "20" },
+                  ]}
+                >
                   <Ionicons name={opt.icon} size={32} color={opt.color} />
                 </View>
 
                 <View style={{ flex: 1 }}>
                   <Text style={styles.modalOptionText}>{opt.title}</Text>
-                  <Text style={styles.modalOptionDescription}>{opt.description}</Text>
+                  <Text style={styles.modalOptionDescription}>
+                    {opt.description}
+                  </Text>
                 </View>
 
                 <Ionicons name="chevron-forward" size={24} color="#64748B" />
               </TouchableOpacity>
             ))}
 
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowTrackingModal(false)}>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowTrackingModal(false)}
+            >
               <Text style={styles.modalCloseText}>Đóng</Text>
             </TouchableOpacity>
           </View>
@@ -254,7 +302,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: "#FFFFFFE6", marginTop: 6 },
   infoBox: {
     marginHorizontal: SPACING.xl,
-    marginTop: -28,
+    marginTop: -16,
     backgroundColor: "#FFFFFF",
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.xl,
@@ -265,13 +313,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E0E7FF",
   },
-  infoText: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: "600", color: "#1E293B" },
+  infoText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1E293B",
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.xxl,
+    marginTop: SPACING.xl,
   },
   menuItem: { width: "30%", marginBottom: SPACING.xl },
   itemInner: {
@@ -292,7 +346,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: SPACING.sm,
   },
-  itemText: { fontSize: 13, fontWeight: "600", color: "#1E293B", textAlign: "center" },
+  itemText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1E293B",
+    textAlign: "center",
+  },
   bannerSection: { marginTop: SPACING.xxl, paddingHorizontal: SPACING.xl },
   bannerContainer: {
     height: 220,
@@ -310,9 +369,19 @@ const styles = StyleSheet.create({
     bottom: 16,
     width: "100%",
   },
-  dot: { height: 8, borderRadius: 4, marginHorizontal: 4, backgroundColor: "#CBD5E1" },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+    backgroundColor: "#CBD5E1",
+  },
   newsSection: { paddingHorizontal: SPACING.xl, marginTop: SPACING.xxl },
-  newsTitle: { fontSize: 18, fontWeight: "700", color: "#1E293B", marginBottom: SPACING.md },
+  newsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: SPACING.md,
+  },
   newsCard: {
     backgroundColor: "#FFFFFF",
     padding: SPACING.lg,
@@ -355,6 +424,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     marginBottom: SPACING.lg,
   },
+  bannerImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#fff",
+  },
+
   modalIconCircle: {
     width: 60,
     height: 60,

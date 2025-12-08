@@ -1,305 +1,296 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   TextInput,
+  StatusBar,
   Platform,
+  Animated,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../api/supabase";
 import theme from "../../theme/theme";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
-const { COLORS, SPACING, BORDER_RADIUS, SHADOWS, GRADIENTS } = theme;
+const fadeAnim = new Animated.Value(0);
+const scaleAnim = new Animated.Value(0.92);
 
 export default function ManageServicesScreen() {
+  const { COLORS } = theme;
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
   const [services, setServices] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const loadServices = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("services")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("services")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
+    setServices(data || []);
+    setLoading(false);
 
-      setServices(data || []);
-    } catch (err) {
-      console.log("❌ Error load services:", err);
-      Alert.alert("Lỗi", "Không thể tải danh sách dịch vụ.");
-    } finally {
-      setLoading(false);
-    }
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
-  useEffect(() => {
-    loadServices();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadServices();
+    }, [])
+  );
 
-  const handleDelete = (id) => {
-    Alert.alert("Xóa dịch vụ", "Bạn có chắc muốn xóa dịch vụ này?", [
+  const filtered = services.filter((s) =>
+    [s.name, s.department, s.code].some((f) =>
+      f?.toLowerCase().includes(search.toLowerCase())
+    )
+  );
+
+  const toggle = (id, active) =>
+    supabase
+      .from("services")
+      .update({ is_active: !active })
+      .eq("id", id)
+      .then(loadServices);
+
+  const remove = (id, name) => {
+    Alert.alert("Xóa dịch vụ", `Xác nhận xóa "${name}"?`, [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
         style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("services").delete().eq("id", id);
-          if (error) Alert.alert("Lỗi", "Xóa thất bại.");
-          else loadServices();
-        },
+        onPress: () =>
+          supabase.from("services").delete().eq("id", id).then(loadServices),
       },
     ]);
   };
 
-  const toggleActive = async (item) => {
-    const { error } = await supabase
-      .from("services")
-      .update({ is_active: !item.is_active })
-      .eq("id", item.id);
-
-    if (error) Alert.alert("Lỗi", "Không thể thay đổi trạng thái.");
-    else loadServices();
-  };
-
-  const filtered = services.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.department.toLowerCase().includes(search.toLowerCase()) ||
-      (s.code && s.code.toLowerCase().includes(search.toLowerCase()))
-  );
-
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <View style={{ flex: 1, backgroundColor: "#eef2f7" }}>
+      <StatusBar barStyle="dark-content" />
+
       <LinearGradient
-        colors={GRADIENTS.header}
+        colors={["#4c9aff", "#2474ff"]}
         style={{
-          height: 120,
-          paddingTop: Platform.OS === "ios" ? 65 : 45,
-          borderBottomLeftRadius: 40,
-          borderBottomRightRadius: 40,
-          justifyContent: "center",
-          position: "relative",
+          paddingTop: Platform.OS === "ios" ? 55 : 35,
+          paddingBottom: 30,
+          paddingHorizontal: 26,
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30,
+          shadowColor: "#2474ff",
+          shadowOpacity: 0.25,
+          shadowOffset: { width: 0, height: 6 },
+          shadowRadius: 20,
         }}
       >
-        <TouchableOpacity
-          onPress={() => navigation.navigate("AdminHome")}
-          style={{
-            position: "absolute",
-            left: SPACING.xl,
-            top: Platform.OS === "ios" ? 65 : 45,
-            width: 40,
-            height: 40,
-            borderRadius: 23,
-            backgroundColor: "rgba(255,255,255,0.28)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 10,
-          }}
-        >
-          <Ionicons name="chevron-back" size={26} color="#FFF" />
-        </TouchableOpacity>
-
         <View
           style={{
-            position: "absolute",
-            top: Platform.OS === "ios" ? 65 : 45,
-            left: 0,
-            right: 0,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 24,
-              fontWeight: "800",
-              color: "#FFF",
-              textAlign: "center",
-            }}
-          >
-            Quản lý dịch vụ
-          </Text>
-        </View>
-      </LinearGradient>
-
-      <View style={{ paddingHorizontal: SPACING.lg, marginTop: 18 }}>
-        <View
-          style={{
-            backgroundColor: "#FFF",
-            borderRadius: 14,
-            paddingHorizontal: 14,
             flexDirection: "row",
             alignItems: "center",
-            ...SHADOWS.input,
+            justifyContent: "space-between",
           }}
         >
-          <Ionicons name="search-outline" size={20} color="#8A8A8A" />
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={20}>
+            <Ionicons name="chevron-back" size={30} color="#FFF" />
+          </TouchableOpacity>
+
+          <Text style={{ color: "#FFF", fontSize: 28, fontWeight: "800" }}>
+            Dịch vụ
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate("CreateService")}
+          >
+            <Ionicons name="add-circle" size={36} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            marginTop: 22,
+            backgroundColor: "rgba(255,255,255,0.25)",
+            borderRadius: 18,
+            paddingHorizontal: 16,
+            height: 54,
+            flexDirection: "row",
+            alignItems: "center",
+            backdropFilter: "blur(18px)",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.4)",
+          }}
+        >
+          <Ionicons name="search" size={22} color="#fff" />
+
           <TextInput
-            placeholder="Tìm theo tên, khoa, mã..."
-            style={{ flex: 1, marginLeft: 8 }}
+            placeholder="Tìm dịch vụ..."
+            placeholderTextColor="#f1f5f9"
+            style={{
+              flex: 1,
+              marginLeft: 12,
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: "500",
+            }}
             value={search}
             onChangeText={setSearch}
           />
-        </View>
-      </View>
 
-      <ScrollView contentContainerStyle={{ padding: SPACING.lg }}>
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </LinearGradient>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: 60 }}
+      >
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator
+            size="large"
+            color="#2474ff"
+            style={{ marginTop: 90 }}
+          />
         ) : filtered.length === 0 ? (
-          <Text style={{ textAlign: "center", marginTop: 20, color: "#777" }}>
-            Không có dịch vụ nào
-          </Text>
-        ) : (
-          filtered.map((item) => (
-            <View
-              key={item.id}
+          <View style={{ marginTop: 120, alignItems: "center" }}>
+            <Ionicons name="heart-dislike-outline" size={90} color="#b0b8c2" />
+            <Text
               style={{
-                backgroundColor: "#FFF",
-                padding: 18,
-                borderRadius: 20,
-                marginBottom: 20,
-                ...SHADOWS.card,
+                marginTop: 14,
+                color: "#6b7280",
+                fontSize: 17,
+                fontWeight: "600",
               }}
             >
+              Không có dịch vụ phù hợp
+            </Text>
+          </View>
+        ) : (
+          <Animated.View
+            style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}
+          >
+            {filtered.map((item) => (
               <View
+                key={item.id}
                 style={{
+                  marginHorizontal: 22,
+                  marginBottom: 22,
+                  backgroundColor: "#ffffff",
+                  borderRadius: 22,
+                  padding: 18,
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 12,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.12,
+                  shadowRadius: 18,
+                  shadowOffset: { width: 0, height: 5 },
+                  elevation: 6,
+                  borderLeftWidth: 7,
+                  borderLeftColor: item.is_active ? "#4ade80" : "#94a3b8",
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 19,
-                    fontWeight: "700",
-                    color: COLORS.textPrimary,
-                    flex: 1,
-                  }}
-                >
-                  {item.name}
-                </Text>
-
-                <View
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 5,
-                    borderRadius: 12,
-                    backgroundColor: item.is_active
-                      ? "rgba(16,185,129,0.15)"
-                      : "rgba(239,68,68,0.15)",
-                  }}
-                >
+                <View style={{ flex: 1, paddingRight: 16 }}>
                   <Text
                     style={{
-                      color: item.is_active ? COLORS.success : COLORS.error,
+                      fontSize: 18,
                       fontWeight: "700",
-                      fontSize: 12,
+                      color: "#1e293b",
                     }}
                   >
-                    {item.is_active ? "Hoạt động" : "Không hoạt động"}
+                    {item.name}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: "#64748b",
+                      marginTop: 4,
+                      fontWeight: "500",
+                    }}
+                  >
+                    {item.department || "Chưa xác định"}
+                    {item.code ? `  •  ${item.code}` : ""}
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 10,
+                      fontSize: 20,
+                      fontWeight: "800",
+                      color: "#2474ff",
+                    }}
+                  >
+                    {Number(item.price).toLocaleString("vi-VN")}đ
                   </Text>
                 </View>
-              </View>
 
-              <View style={{ marginTop: 4 }}>
                 <View
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 8,
+                    justifyContent: "center",
+                    alignItems: "flex-end",
+                    gap: 10,
                   }}
                 >
-                  <Ionicons name="business-outline" size={18} color="#64748B" />
-                  <Text style={{ marginLeft: 6, fontSize: 15, color: "#475569" }}>
-                    {item.department}
-                  </Text>
-                </View>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate("EditService", { serviceId: item.id })
+                    }
+                    style={{
+                      padding: 10,
+                      backgroundColor: "#edf2ff",
+                      borderRadius: 14,
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={22} color="#2474ff" />
+                  </TouchableOpacity>
 
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 6,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="pricetag-outline" size={18} color="#64748B" />
-                    <Text style={{ marginLeft: 6, fontSize: 15, color: "#475569" }}>
-                      {item.code || "Không có mã"}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={() => toggle(item.id, item.is_active)}
+                    style={{
+                      padding: 10,
+                      backgroundColor: item.is_active ? "#e9fcef" : "#f3f4f6",
+                      borderRadius: 14,
+                    }}
+                  >
+                    <Ionicons
+                      name={item.is_active ? "eye-outline" : "eye-off-outline"}
+                      size={22}
+                      color={item.is_active ? "#22c55e" : "#9ca3af"}
+                    />
+                  </TouchableOpacity>
 
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="cash-outline" size={18} color="#64748B" />
-                    <Text
-                      style={{
-                        marginLeft: 6,
-                        fontSize: 17,
-                        fontWeight: "700",
-                        color: COLORS.primary,
-                      }}
-                    >
-                      {item.price?.toLocaleString()}đ
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    onPress={() => remove(item.id, item.name)}
+                    style={{
+                      padding: 10,
+                      backgroundColor: "#feecec",
+                      borderRadius: 14,
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={22} color="#ef4444" />
+                  </TouchableOpacity>
                 </View>
               </View>
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: 14,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => toggleActive(item)}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 11,
-                    borderRadius: 12,
-                    backgroundColor: item.is_active
-                      ? COLORS.warning
-                      : COLORS.success,
-                    marginRight: 10,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "#FFF", fontWeight: "700" }}>
-                    {item.is_active ? "Tắt" : "Bật"}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => handleDelete(item.id)}
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    backgroundColor: COLORS.error,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            ))}
+          </Animated.View>
         )}
       </ScrollView>
     </View>

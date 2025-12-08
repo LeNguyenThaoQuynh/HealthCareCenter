@@ -12,14 +12,8 @@ import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import theme from "../../theme/theme";
 
-const {
-  COLORS,
-  GRADIENTS,
-  SPACING,
-  BORDER_RADIUS,
-  FONT_WEIGHT,
-  SHADOWS,
-} = theme;
+const { COLORS, GRADIENTS, SPACING, BORDER_RADIUS, FONT_WEIGHT, SHADOWS } =
+  theme;
 
 export default function BookingOptionsScreen() {
   const navigation = useNavigation();
@@ -45,13 +39,18 @@ export default function BookingOptionsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack( )} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("HomeScreen")}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
 
         <View style={styles.titleWrapper}>
           <Text style={styles.headerTitle}>Đặt lịch khám</Text>
-          <Text style={styles.headerSubtitle}>Chọn cách đặt lịch phù hợp với bạn</Text>
+          <Text style={styles.headerSubtitle}>
+            Chọn cách đặt lịch phù hợp với bạn
+          </Text>
         </View>
 
         <View style={{ width: 48 }} />
