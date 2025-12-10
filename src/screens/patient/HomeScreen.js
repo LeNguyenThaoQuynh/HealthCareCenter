@@ -58,10 +58,29 @@ export default function HomeScreen() {
       icon: "heart-outline",
       action: () => setShowTrackingModal(true),
     },
-    { title: "Hỗ trợ", icon: "chatbubble-outline", screen: null },
+    { title: "Hỗ trợ", icon: "chatbubble-outline", screen: "SupportScreen" },
+  ];
+
+  const umcMenu = [
+    {
+      title: "Hướng dẫn khách hàng",
+      icon: "help-circle-outline",
+      screen: "CustomerGuide",
+    },
+    {
+      title: "Bảng giá dịch vụ",
+      icon: "pricetag-outline",
+      screen: "PriceList",
+    },
+    {
+      title: "Tin tức - Sự kiện",
+      icon: "newspaper-outline",
+      screen: "NewsEvents",
+    },
   ];
 
   const scales = useRef(menu.map(() => new Animated.Value(1))).current;
+  const umcScales = useRef(umcMenu.map(() => new Animated.Value(1))).current;
 
   const animatePress = (index) => {
     Animated.sequence([
@@ -78,6 +97,22 @@ export default function HomeScreen() {
     ]).start();
   };
 
+  const animateUmCPress = (index) => {
+    Animated.sequence([
+      Animated.timing(umcScales[index], {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(umcScales[index], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Banner
   const bannerData = [
     { id: "1", image: require("../../../assets/images/umc-hospital.jpg") },
     { id: "2", image: require("../../../assets/images/phuocem.jpg") },
@@ -104,7 +139,7 @@ export default function HomeScreen() {
       <Image
         source={item.image}
         style={styles.bannerImage}
-        resizeMode="contain"
+        resizeMode="cover"
       />
     </View>
   );
@@ -134,11 +169,16 @@ export default function HomeScreen() {
   ];
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
+      {/* THÊM 5 THUỘC TÍNH QUAN TRỌNG DƯỚI ĐÂY ĐỂ TẮT HIỆU ỨNG ĐÀN HỒI */}
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        nestedScrollEnabled={true}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
+        {/* Header */}
         <LinearGradient colors={["#2563EB", "#3B82F6"]} style={styles.header}>
           <Text style={styles.greeting}>Xin chào,</Text>
           <Text style={styles.name}>{displayName}</Text>
@@ -154,6 +194,7 @@ export default function HomeScreen() {
           <Ionicons name="chevron-forward" size={22} color="#2563EB" />
         </TouchableOpacity>
 
+        {/* 6 ô chính */}
         <View style={styles.grid}>
           {menu.map((item, i) => (
             <TouchableOpacity
@@ -181,6 +222,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* Banner */}
         <View style={styles.bannerSection}>
           <View style={styles.bannerContainer}>
             <FlatList
@@ -204,15 +246,15 @@ export default function HomeScreen() {
               })}
             />
             <View style={styles.dotsContainer}>
-              {bannerData.map((_, index) => (
+              {bannerData.map((_, i) => (
                 <View
-                  key={index}
+                  key={i}
                   style={[
                     styles.dot,
                     {
                       backgroundColor:
-                        currentBannerIndex === index ? "#2563EB" : "#CBD5E1",
-                      width: currentBannerIndex === index ? 24 : 8,
+                        currentBannerIndex === i ? "#2563EB" : "#CBD5E1",
+                      width: currentBannerIndex === i ? 24 : 8,
                     },
                   ]}
                 />
@@ -221,21 +263,42 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.newsSection}>
-          <Text style={styles.newsTitle}>Tin tức sức khỏe</Text>
-          <TouchableOpacity style={styles.newsCard}>
-            <Ionicons name="heart" size={26} color="#EF4444" />
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.newsHeadline}>
-                10 mẹo giữ sức khỏe mùa đông
-              </Text>
-              <Text style={styles.newsDate}>18/11/2025</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color="#94A3B8" />
+        {/* Tiêu đề + 6 ô UMC Care */}
+        <View style={styles.newsHeader}>
+          <Text style={styles.newsTitle}>Tin tức nổi bật</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("NewsEvents")}>
+            <Text style={styles.viewMore}>Xem thêm</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.grid}>
+          {umcMenu.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={styles.menuItem}
+              onPress={() => {
+                animateUmCPress(i);
+                navigation.navigate(item.screen);
+              }}
+              activeOpacity={0.85}
+            >
+              <Animated.View
+                style={[
+                  styles.itemInner,
+                  { transform: [{ scale: umcScales[i] }] },
+                ]}
+              >
+                <View style={styles.iconCircle}>
+                  <Ionicons name={item.icon} size={28} color="#2563EB" />
+                </View>
+                <Text style={styles.itemText}>{item.title}</Text>
+              </Animated.View>
+            </TouchableOpacity>
+          ))}
         </View>
       </ScrollView>
 
+      {/* Modal */}
       {showTrackingModal && (
         <View style={styles.modalOverlay}>
           <TouchableOpacity
@@ -245,7 +308,6 @@ export default function HomeScreen() {
           />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Chọn loại theo dõi</Text>
-
             {trackingOptions.map((opt, idx) => (
               <TouchableOpacity
                 key={idx}
@@ -263,18 +325,15 @@ export default function HomeScreen() {
                 >
                   <Ionicons name={opt.icon} size={32} color={opt.color} />
                 </View>
-
                 <View style={{ flex: 1 }}>
                   <Text style={styles.modalOptionText}>{opt.title}</Text>
                   <Text style={styles.modalOptionDescription}>
                     {opt.description}
                   </Text>
                 </View>
-
                 <Ionicons name="chevron-forward" size={24} color="#64748B" />
               </TouchableOpacity>
             ))}
-
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowTrackingModal(false)}
@@ -289,9 +348,12 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
   header: {
-    paddingTop: theme.headerPaddingTop || 60,
+    paddingTop: 60,
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.xxl,
     borderBottomLeftRadius: 32,
@@ -300,10 +362,11 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 17, color: "#FFFFFFCC", fontWeight: "600" },
   name: { fontSize: 32, color: "#FFFFFF", fontWeight: "800", marginTop: 4 },
   subtitle: { fontSize: 15, color: "#FFFFFFE6", marginTop: 6 },
+
   infoBox: {
     marginHorizontal: SPACING.xl,
     marginTop: -16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.xl,
     flexDirection: "row",
@@ -320,6 +383,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1E293B",
   },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -329,7 +393,7 @@ const styles = StyleSheet.create({
   },
   menuItem: { width: "30%", marginBottom: SPACING.xl },
   itemInner: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     paddingVertical: SPACING.xl,
     borderRadius: BORDER_RADIUS.xl,
     alignItems: "center",
@@ -352,6 +416,7 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     textAlign: "center",
   },
+
   bannerSection: { marginTop: SPACING.xxl, paddingHorizontal: SPACING.xl },
   bannerContainer: {
     height: 220,
@@ -369,29 +434,18 @@ const styles = StyleSheet.create({
     bottom: 16,
     width: "100%",
   },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-    backgroundColor: "#CBD5E1",
-  },
-  newsSection: { paddingHorizontal: SPACING.xl, marginTop: SPACING.xxl },
-  newsTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1E293B",
+  dot: { height: 8, borderRadius: 4, marginHorizontal: 4 },
+
+  newsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: SPACING.xl,
+    marginTop: SPACING.xxl,
     marginBottom: SPACING.md,
   },
-  newsCard: {
-    backgroundColor: "#FFFFFF",
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    ...SHADOWS.card,
-  },
-  newsHeadline: { fontSize: 15, fontWeight: "600", color: "#1E293B" },
-  newsDate: { fontSize: 13, color: "#64748B", marginTop: 4 },
+  newsTitle: { fontSize: 22, fontWeight: "800", color: "#1E293B" },
+  viewMore: { fontSize: 16, color: "#0D6EFD", fontWeight: "700" },
 
   modalOverlay: {
     position: "absolute",
@@ -399,14 +453,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF",
     width: width - 60,
-    maxWidth: 420,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.xl,
     ...SHADOWS.card,
@@ -424,12 +477,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     marginBottom: SPACING.lg,
   },
-  bannerImage: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#fff",
-  },
-
   modalIconCircle: {
     width: 60,
     height: 60,
@@ -438,20 +485,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: SPACING.lg,
   },
-  modalOptionText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1E293B",
-  },
-  modalOptionDescription: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    marginTop: SPACING.xl,
-    paddingVertical: SPACING.md,
-  },
+  modalOptionText: { fontSize: 17, fontWeight: "700", color: "#1E293B" },
+  modalOptionDescription: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  modalCloseBtn: { marginTop: SPACING.xl, paddingVertical: SPACING.md },
   modalCloseText: {
     textAlign: "center",
     fontSize: 16,
