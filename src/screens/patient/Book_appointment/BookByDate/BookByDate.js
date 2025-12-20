@@ -82,7 +82,7 @@ export default function BookByDate() {
 
         <Text style={styles.headerTitle}>Chọn ngày khám</Text>
 
-        <TouchableOpacity onPress={() => navigation.replace("PatientHome")}>
+        <TouchableOpacity onPress={() => navigation.replace("HomeScreen")}>
           <Ionicons name="home-outline" size={26} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>
@@ -95,7 +95,6 @@ export default function BookByDate() {
         </View>
       )}
 
-      {/* CALENDAR */}
       <View style={styles.calendarContainer}>
         <Calendar
           current={today}

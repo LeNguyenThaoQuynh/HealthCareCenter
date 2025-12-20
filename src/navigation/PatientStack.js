@@ -28,6 +28,7 @@ import BookSuccessDoctor from "../screens/patient/Book_appointment/BookByDoctor/
 import MedicalRecordScreen from "../screens/patient/MedicalRecordScreen";
 import PriceListScreen from "../screens/patient/news/PriceListScreen";
 import SupportScreen from "../screens/patient/SupportScreen";
+import HelpScreen from "../screens/patient/HelpScreen";
 const Stack = createStackNavigator();
 
 export default function PatientStack() {
@@ -78,6 +79,7 @@ export default function PatientStack() {
       <Stack.Screen name="CustomerGuide" component={CustomerGuideScreen} />
       <Stack.Screen name="PriceList" component={PriceListScreen} />
       <Stack.Screen name="SupportScreen" component={SupportScreen} />
+      <Stack.Screen name="HelpScreen" component={HelpScreen} />
       <Stack.Screen
         name="MedicalRecordScreen"
         component={MedicalRecordScreen}

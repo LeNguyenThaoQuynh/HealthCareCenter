@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,15 +14,21 @@ import { supabase } from "../../api/supabase";
 import { deleteDoctorService } from "../../services/doctor/doctorService";
 import { styles } from "../../styles/admin/DoctorDetailStyles";
 import Icon from "react-native-vector-icons/Ionicons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
 
 export default function DoctorDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { doctorId } = route.params;
+
   const [doctor, setDoctor] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const fetchDoctorDetail = async () => {
     setLoading(true);
     try {
@@ -65,9 +71,12 @@ export default function DoctorDetailScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchDoctorDetail();
-  }, [doctorId]);
+  // FIX CHÍNH: Mỗi lần màn hình được focus → tự động reload dữ liệu mới nhất
+  useFocusEffect(
+    useCallback(() => {
+      fetchDoctorDetail();
+    }, [doctorId])
+  );
 
   const handleDelete = () => {
     const doctorName =
@@ -124,6 +133,7 @@ export default function DoctorDetailScreen() {
   const fullName = doctor.user_profiles?.full_name || doctor.name || "Bác sĩ";
   const avatarUrl = doctor.avatar_url;
   const avatarLetter = fullName.charAt(0).toUpperCase();
+
   const dayMap = {
     T2: "Thứ 2",
     "Thứ 2": "Thứ 2",
@@ -281,20 +291,45 @@ export default function DoctorDetailScreen() {
           )}
         </View>
 
+        {/* 3 NÚT HÀNH ĐỘNG */}
         <View style={styles.actionContainer}>
+          {/* Sửa thông tin */}
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate("EditDoctor", { doctorId })}
           >
-            <Icon name="pencil" size={22} color="#fff" />
+            <Icon name="pencil" size={18} color="#fff" />
             <Text style={styles.editButtonText}>Sửa thông tin</Text>
           </TouchableOpacity>
 
+          <View style={styles.actionButtonWrapper}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() =>
+                navigation.navigate("EditDoctorSchedule", {
+                  doctorId,
+                  doctorName: fullName,
+                })
+              }
+            >
+              <LinearGradient
+                colors={["#6366F1", "#4F46E5"]}
+                style={styles.scheduleButton}
+              >
+                <Icon name="calendar-outline" size={18} color="#fff" />
+                <Text style={styles.scheduleButtonText}>Sửa lịch làm</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Xóa bác sĩ */}
           <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Icon name="trash" size={22} color="#fff" />
+            <Icon name="trash" size={18} color="#fff" />
             <Text style={styles.deleteButtonText}>Xóa bác sĩ</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );

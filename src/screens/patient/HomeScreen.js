@@ -47,6 +47,7 @@ export default function HomeScreen() {
       screen: "BookingOptionsScreen",
     },
     { title: "Lịch sử khám", icon: "time-outline", screen: "HistoryScreen" },
+    { title: "Trợ giúp", icon: "help-circle-outline", screen: "HelpScreen" },
     {
       title: "Bệnh án",
       icon: "document-text-outline",
@@ -114,10 +115,9 @@ export default function HomeScreen() {
 
   // Banner
   const bannerData = [
-    { id: "1", image: require("../../../assets/images/umc-hospital.jpg") },
-    { id: "2", image: require("../../../assets/images/phuocem.jpg") },
-    { id: "3", image: require("../../../assets/images/quynh.jpg") },
-    { id: "4", image: require("../../../assets/images/phuc.jpg") },
+    { id: "1", image: require("../../../assets/images/phuoc.jpg") },
+    { id: "2", image: require("../../../assets/images/quynh.jpg") },
+    { id: "3", image: require("../../../assets/images/phuc.jpg") },
   ];
 
   const flatListRef = useRef(null);

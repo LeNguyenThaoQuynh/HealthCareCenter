@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import AppointmentCard from "../../components/AppointmentCard";
 import { AppointmentController } from "../../controllers/patient/AppointmentController";
 
+/* ================= THEME ================= */
 const Colors = {
   primary: "#0066FF",
   gradient: ["#0066FF", "#2BB5FF"],
@@ -26,7 +28,12 @@ const Colors = {
   cancelled: "#FF3B30",
   completed: "#7C3AED",
   bg: "#F3F6FF",
+  textDark: "#1e293b",
+  textSub: "#64748b",
 };
+
+const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20 };
+const BORDER_RADIUS = { xl: 20, xxxl: 30 };
 
 const TABS = [
   {
@@ -38,7 +45,7 @@ const TABS = [
   { key: "pending", title: "Chờ duyệt", icon: "time", color: Colors.pending },
   {
     key: "completed",
-    title: "Đã hoàn thành",
+    title: "Hoàn tất",
     icon: "medkit",
     color: Colors.completed,
   },
@@ -50,6 +57,7 @@ const TABS = [
   },
 ];
 
+/* ================= SCREEN ================= */
 export default function HistoryScreen() {
   const navigation = useNavigation();
   const [appointments, setAppointments] = useState([]);
@@ -132,31 +140,27 @@ export default function HistoryScreen() {
 
     return (
       <TouchableOpacity
-        activeOpacity={0.9}
+        activeOpacity={0.85}
         onPress={() => setActiveTab(item.key)}
-        style={[styles.tabWrapper]}
       >
-        <View
+        <Animated.View
+          entering={FadeInDown}
           style={[
             styles.tab,
             active && {
-              backgroundColor: item.color + "15",
+              backgroundColor: item.color + "18",
               borderColor: item.color,
+              transform: [{ scale: 1.03 }],
             },
           ]}
         >
           <Ionicons
             name={item.icon}
             size={18}
-            color={active ? item.color : "#64748b"}
+            color={active ? item.color : Colors.textSub}
           />
 
-          <Text
-            style={[
-              styles.tabText,
-              active && { color: item.color, fontWeight: "700" },
-            ]}
-          >
+          <Text style={[styles.tabText, active && { color: item.color }]}>
             {item.title}
           </Text>
 
@@ -170,7 +174,7 @@ export default function HistoryScreen() {
               <Text style={styles.badgeText}>{count > 99 ? "99+" : count}</Text>
             </View>
           )}
-        </View>
+        </Animated.View>
       </TouchableOpacity>
     );
   };
@@ -186,17 +190,24 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle="light-content"
+      />
+
       {/* HEADER */}
       <LinearGradient colors={Colors.gradient} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("HomeScreen")}>
-          <Ionicons name="arrow-back" size={28} color="#fff" />
+        <TouchableOpacity
+          style={styles.headerSide}
+          onPress={() => navigation.navigate("HomeScreen")}
+        >
+          <Ionicons name="arrow-back" size={26} color="#fff" />
         </TouchableOpacity>
 
-        <Text style={styles.title}>Lịch sử đặt lịch</Text>
+        <Text style={styles.headerTitle}>Lịch sử đặt lịch</Text>
 
-        <TouchableOpacity onPress={onRefresh}>
-          <Ionicons name="refresh" size={26} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerSide} />
       </LinearGradient>
 
       {/* TABS */}
@@ -215,42 +226,19 @@ export default function HistoryScreen() {
       {/* CONTENT */}
       <View style={styles.content}>
         {filteredAppointments.length === 0 ? (
-          <Animated.View entering={ZoomIn.delay(100)} style={styles.empty}>
-            <Ionicons
-              name={
-                activeTab === "completed"
-                  ? "document-text-outline"
-                  : activeTab === "confirmed"
-                  ? "calendar-outline"
-                  : activeTab === "pending"
-                  ? "hourglass-outline"
-                  : "close-circle-outline"
-              }
-              size={100}
-              color="#d3ddff"
-            />
-
-            <Text style={styles.emptyTitle}>
-              {activeTab === "completed" && "Chưa có buổi khám nào hoàn tất"}
-              {activeTab === "confirmed" && "Chưa có lịch được duyệt"}
-              {activeTab === "pending" && "Không có lịch đang chờ"}
-              {activeTab === "cancelled" && "Bạn chưa từng hủy lịch nào"}
+          <Animated.View entering={ZoomIn} style={styles.empty}>
+            <Ionicons name="calendar-outline" size={96} color="#d3ddff" />
+            <Text style={styles.emptyTitle}>Chưa có lịch hẹn</Text>
+            <Text style={styles.emptySubtitle}>
+              Lịch phù hợp sẽ hiển thị tại đây
             </Text>
-
-            {activeTab === "completed" && (
-              <Text style={styles.emptySubtitle}>
-                Lịch hoàn tất sẽ xuất hiện tại đây.
-              </Text>
-            )}
           </Animated.View>
         ) : (
           <FlatList
             data={filteredAppointments}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item, index }) => (
-              <Animated.View
-                entering={FadeInDown.delay(index * 70).springify()}
-              >
+              <Animated.View entering={FadeInDown.delay(index * 60)}>
                 <AppointmentCard
                   item={item}
                   onCancel={
@@ -274,50 +262,56 @@ export default function HistoryScreen() {
   );
 }
 
+/* ================= STYLES ================= */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   header: {
-    flexDirection: "row",
+    paddingTop: Platform.OS === "ios" ? 60 : 44,
+    paddingBottom: 20,
+    paddingHorizontal: SPACING.xl,
+    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
+    borderBottomRightRadius: BORDER_RADIUS.xxxl,
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 60 : 48,
-    paddingHorizontal: 22,
-    paddingBottom: 26,
-    borderBottomLeftRadius: 38,
-    borderBottomRightRadius: 38,
-    elevation: 10,
+    justifyContent: "center",
   },
 
-  title: { fontSize: 26, fontWeight: "900", color: "#fff" },
+  headerSide: {
+    position: "absolute",
+    left: SPACING.xl,
+    bottom: 20,
+  },
+
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.3,
+  },
 
   tabContainer: {
     backgroundColor: "#fff",
-    paddingVertical: 10,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderColor: "#e2e8f0",
-  },
-
-  tabWrapper: {
-    paddingHorizontal: 2,
   },
 
   tab: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
     gap: 6,
   },
 
   tabText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#64748b",
+    fontWeight: "700",
+    color: Colors.textSub,
   },
 
   badge: {
@@ -332,7 +326,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: "#fff",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
   },
 
   content: { flex: 1 },
@@ -342,7 +336,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 15,
-    color: "#475569",
+    color: Colors.textSub,
     fontWeight: "600",
   },
 
@@ -356,16 +350,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#1e293b",
+    color: Colors.textDark,
     marginTop: 16,
-    textAlign: "center",
   },
 
   emptySubtitle: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 15,
-    color: "#64748b",
+    color: Colors.textSub,
     textAlign: "center",
-    lineHeight: 22,
   },
 });

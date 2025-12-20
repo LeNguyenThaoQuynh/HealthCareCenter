@@ -184,17 +184,10 @@ export default function ManageDoctorsScreen() {
           onPress={() => navigation.navigate("AdminHome")}
           style={styles.backBtn}
         >
-          <Ionicons name="arrow-back" size={26} color="#FFF" />
+          <Ionicons name="arrow-back" size={20} color="#FFF" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Quản lý bác sĩ</Text>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate("AdminHome")}
-          style={styles.homeBtn}
-        >
-          <Ionicons name="home" size={24} color="#FFF" />
-        </TouchableOpacity>
       </LinearGradient>
 
       <View style={styles.searchBar}>
@@ -282,7 +275,15 @@ const styles = {
     borderRadius: 25,
   },
 
-  headerTitle: { fontSize: 23, fontWeight: "bold", color: "#FFF" },
+  headerTitle: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 23,
+    fontWeight: "bold",
+    color: "#FFF",
+  },
 
   searchBar: {
     flexDirection: "row",

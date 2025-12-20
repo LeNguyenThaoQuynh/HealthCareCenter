@@ -23,6 +23,9 @@ import EditDoctorScreen from "../screens/admin/EditDoctorScreen";
 import EditServiceScreen from "../screens/admin/EditServiceScreen";
 import ManageRoom from "../screens/admin/ManageRoom";
 import MedicinesScreen from "../screens/admin/MedicinesScreen";
+import AdminSupportScreen from "../screens/admin/AdminSupportScreen";
+import AdminChatDetailScreen from "../screens/admin/AdminChatDetail";
+import EditDoctorScheduleScreen from "../screens/admin/EditDoctorScheduleScreen";
 
 // DOCTOR
 import DoctorHomeScreen from "../screens/doctor/DoctorHomeScreen";
@@ -116,6 +119,12 @@ export default function AppNavigator() {
       <Stack.Screen name="ManageDoctors" component={ManageDoctorsScreen} />
       <Stack.Screen name="ManageRoom" component={ManageRoom} />
       <Stack.Screen name="Medicines" component={MedicinesScreen} />
+      <Stack.Screen name="AdminSupport" component={AdminSupportScreen} />
+      <Stack.Screen name="AdminChatDetail" component={AdminChatDetailScreen} />
+      <Stack.Screen
+        name="EditDoctorSchedule"
+        component={EditDoctorScheduleScreen}
+      />
       <Stack.Screen
         name="CreateDoctorAccount"
         component={CreateDoctorAccountScreen}
