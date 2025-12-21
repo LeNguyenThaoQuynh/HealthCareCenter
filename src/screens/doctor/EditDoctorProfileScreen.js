@@ -26,8 +26,6 @@ const {
   FONT_WEIGHT,
   SHADOWS,
 } = theme;
-
-// PHẦN UPLOAD ẢNH – GIỮ NGUYÊN 100% CODE CỦA BẠN (TÔI KHÔNG ĐỘNG GÌ HẾT)
 const uploadImageToSupabase = async (uri, userId) => {
   try {
     console.log("Starting upload for URI:", uri);
@@ -98,7 +96,6 @@ const EditDoctorProfileScreen = ({ navigation }) => {
     }
   };
 
-  // GIỮ NGUYÊN HOÀN TOÀN HÀM CHỌN ẢNH CỦA BẠN
   const pickAndUploadImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {

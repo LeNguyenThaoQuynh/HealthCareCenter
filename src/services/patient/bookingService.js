@@ -225,6 +225,9 @@ export const createAppointment = async ({
 
     if (!user) throw new Error("Chưa đăng nhập");
 
+    // 🔥 BẮT BUỘC: truyền date cho DB
+    const appointmentDate = date; // YYYY-MM-DD
+
     const vietnamDate = new Date(`${date}T${startTime}:00+07:00`);
     const utcDateTime = vietnamDate.toISOString().slice(0, 19);
 
@@ -233,12 +236,13 @@ export const createAppointment = async ({
       .insert({
         user_id: user.id,
         doctor_id: doctorId,
+        date: appointmentDate, // ✅ DÒNG QUAN TRỌNG NHẤT
+        slot_id: slotId,
+        appointment_date: utcDateTime,
         patient_name: patientName.trim(),
         patient_phone: patientPhone.replace(/\D/g, ""),
         price,
         status: "pending",
-        slot_id: slotId,
-        appointment_date: utcDateTime,
       })
       .select()
       .single();
@@ -251,3 +255,4 @@ export const createAppointment = async ({
     return { success: false, error: error.message };
   }
 };
+

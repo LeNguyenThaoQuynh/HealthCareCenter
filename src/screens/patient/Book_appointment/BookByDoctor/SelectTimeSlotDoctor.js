@@ -182,7 +182,7 @@ export default function SelectTimeSlotDoctor() {
           <Ionicons name="arrow-back" size={28} color={Colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chọn khung giờ</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('PatientHome')}>
+        <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
           <Ionicons name="home" size={26} color={Colors.white} />
         </TouchableOpacity>
       </Animated.View>

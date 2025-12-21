@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Image,
   RefreshControl,
   Platform,
-  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,9 +29,6 @@ import {
 } from "../../../../theme/theme";
 import { supabase } from "../../../../api/supabase";
 
-const { width } = Dimensions.get("window");
-const SLOT_WIDTH = (width - SPACING.xl * 2 - SPACING.md) / 2;
-
 export default function SelectTimeSlot() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -40,6 +36,8 @@ export default function SelectTimeSlot() {
 
   const { doctorsWithSlots, loadingSlots, loadSlots } = useBookingFlow();
   const [doctorsWithRating, setDoctorsWithRating] = useState([]);
+
+  /* ================= LOAD DATA ================= */
 
   useFocusEffect(
     useCallback(() => {
@@ -84,6 +82,8 @@ export default function SelectTimeSlot() {
     fetchRatings();
   }, [doctorsWithSlots]);
 
+  /* ================= HELPERS ================= */
+
   const headerDate = useMemo(
     () =>
       new Date(date).toLocaleDateString("vi-VN", {
@@ -105,16 +105,16 @@ export default function SelectTimeSlot() {
     });
   };
 
-  const renderSlot = useCallback((slot, doctor) => {
-    if (slot.available <= 0) return null;
+  /* ================= SLOT ITEM ================= */
 
-    const critical = slot.available === 1;
-    const low = slot.available <= 2;
+  const renderSlotItem = (doctor) => ({ item }) => {
+    const low = item.available <= 2;
+    const critical = item.available === 1;
 
     return (
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => handleSlotPress(slot, doctor)}
+        onPress={() => handleSlotPress(item, doctor)}
         style={[
           styles.slot,
           low && styles.slotLow,
@@ -122,84 +122,85 @@ export default function SelectTimeSlot() {
         ]}
       >
         <Ionicons name="time-outline" size={18} color="#065F46" />
-        <Text style={styles.slotTime}>{slot.display}</Text>
-        <Text style={[styles.slotAvailable, critical && styles.criticalText]}>
-          Còn {slot.available} chỗ
+        <Text style={styles.slotTime}>{item.display}</Text>
+        <Text
+          style={[
+            styles.slotAvailable,
+            critical && styles.criticalText,
+          ]}
+        >
+          Còn {item.available} chỗ
         </Text>
       </TouchableOpacity>
     );
-  }, []);
+  };
 
-  const renderDoctor = useCallback(
-    ({ item }) => {
-      const { doctor, slots, averageRating, totalRatings } = item;
+  /* ================= DOCTOR CARD ================= */
 
-      return (
-        <View style={styles.doctorCard}>
-          <View style={styles.doctorHeader}>
-            {/* AVATAR + RING (ĐỀU NHAU – ĐỒNG TÂM) */}
-            <LinearGradient
-              colors={["#22C55E", "#16A34A"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarRing}
-            >
-              {doctor.avatar_url ? (
-                <Image
-                  source={{ uri: doctor.avatar_url }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarLetter}>
-                    {doctor.name?.charAt(0).toUpperCase() || "B"}
-                  </Text>
-                </View>
-              )}
-            </LinearGradient>
+  const renderDoctor = ({ item }) => {
+    const { doctor, slots, averageRating, totalRatings } = item;
 
-            <View style={styles.doctorInfo}>
-              <Text style={styles.doctorName}>BS. {doctor.name}</Text>
-              <Text style={styles.specialization}>
-                {doctor.specializationText}
-              </Text>
-
-              {(doctor.experience_years || doctor.room_number) && (
-                <Text style={styles.experience}>
-                  {doctor.experience_years &&
-                    `${doctor.experience_years} năm kinh nghiệm`}
-                  {doctor.experience_years && doctor.room_number && " • "}
-                  {doctor.room_number && `Phòng ${doctor.room_number}`}
+    return (
+      <View style={styles.doctorCard}>
+        {/* ===== HEADER ===== */}
+        <View style={styles.doctorHeader}>
+          <LinearGradient
+            colors={["#22C55E", "#16A34A"]}
+            style={styles.avatarRing}
+          >
+            {doctor.avatar_url ? (
+              <Image
+                source={{ uri: doctor.avatar_url }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarLetter}>
+                  {doctor.name?.charAt(0)?.toUpperCase() || "B"}
                 </Text>
-              )}
-
-              {averageRating > 0 ? (
-                <View style={styles.ratingBadge}>
-                  <Ionicons name="shield-checkmark" size={16} color="#047857" />
-                  <Text style={styles.ratingNumber}>{averageRating}</Text>
-                  <Text style={styles.ratingLabel}>Được đánh giá cao</Text>
-                  <Text style={styles.ratingCountText}>({totalRatings})</Text>
-                </View>
-              ) : (
-                <Text style={styles.noRatingText}>Chưa có đánh giá</Text>
-              )}
-            </View>
-          </View>
-
-          <Text style={styles.slotLabel}>Chọn khung giờ</Text>
-
-          <View style={styles.slotsGrid}>
-            {slots.map((slot) => (
-              <View key={slot.id} style={styles.slotWrapper}>
-                {renderSlot(slot, doctor)}
               </View>
-            ))}
+            )}
+          </LinearGradient>
+
+          <View style={styles.doctorInfo}>
+            <Text style={styles.doctorName}>BS. {doctor.name}</Text>
+            <Text style={styles.specialization}>
+              {doctor.specializationText}
+            </Text>
+
+            {averageRating > 0 ? (
+              <View style={styles.ratingBadge}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={16}
+                  color="#047857"
+                />
+                <Text style={styles.ratingNumber}>{averageRating}</Text>
+                <Text style={styles.ratingLabel}>Đánh giá cao</Text>
+                <Text style={styles.ratingCountText}>
+                  ({totalRatings})
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.noRatingText}>Chưa có đánh giá</Text>
+            )}
           </View>
         </View>
-      );
-    },
-    [renderSlot]
-  );
+
+        <Text style={styles.slotLabel}>Chọn khung giờ</Text>
+
+        {/* ===== SLOT GRID – LUÔN 2 CỘT ===== */}
+        <FlatList
+          data={slots.filter((s) => s.available > 0)}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          scrollEnabled={false}
+          columnWrapperStyle={styles.slotRow}
+          renderItem={renderSlotItem(doctor)}
+        />
+      </View>
+    );
+  };
 
   const onRefresh = useCallback(
     () => loadSlots(date, specialization),
@@ -210,13 +211,14 @@ export default function SelectTimeSlot() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tìm bác sĩ phù hợp...</Text>
+        <Text style={styles.loadingText}>Đang tải khung giờ...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* ===== HEADER ===== */}
       <LinearGradient colors={GRADIENTS.header} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={26} color="#FFF" />
@@ -230,11 +232,13 @@ export default function SelectTimeSlot() {
         <View style={{ width: 40 }} />
       </LinearGradient>
 
+      {/* ===== INFO ===== */}
       <View style={styles.infoCard}>
         <View>
           <Text style={styles.infoLabel}>Ngày khám</Text>
           <Text style={styles.infoValue}>{headerDate}</Text>
         </View>
+
         <View style={styles.priceContainer}>
           <Text style={styles.priceLabel}>Phí khám</Text>
           <Text style={styles.priceValue}>
@@ -243,15 +247,16 @@ export default function SelectTimeSlot() {
         </View>
       </View>
 
+      {/* ===== LIST ===== */}
       <FlatList
         data={doctorsWithRating}
-        renderItem={renderDoctor}
         keyExtractor={(item) => item.doctor.id.toString()}
-        contentContainerStyle={styles.list}
+        renderItem={renderDoctor}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={loadingSlots} onRefresh={onRefresh} />
         }
+        contentContainerStyle={styles.list}
       />
     </View>
   );
@@ -273,22 +278,16 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: BORDER_RADIUS.xxl,
   },
   headerCenter: { alignItems: "center" },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#FFF",
-  },
+  headerTitle: { fontSize: 24, fontWeight: "900", color: "#FFF" },
   headerSubtitle: {
     fontSize: FONT_SIZE.sm,
     color: "#E0F2FE",
     fontWeight: "600",
-    marginTop: 2,
   },
 
   infoCard: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     margin: SPACING.xl,
     padding: SPACING.lg,
     backgroundColor: COLORS.surface,
@@ -297,12 +296,7 @@ const styles = StyleSheet.create({
   },
 
   infoLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-  infoValue: {
-    fontSize: FONT_SIZE.base,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    marginTop: 4,
-  },
+  infoValue: { fontSize: FONT_SIZE.base, fontWeight: "700", marginTop: 4 },
 
   priceContainer: { alignItems: "flex-end" },
   priceLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
@@ -310,16 +304,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xl,
     fontWeight: "900",
     color: COLORS.primary,
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: SPACING.lg,
-    color: COLORS.textSecondary,
   },
 
   doctorCard: {
@@ -335,7 +319,6 @@ const styles = StyleSheet.create({
 
   doctorHeader: { flexDirection: "row", marginBottom: SPACING.lg },
 
-  /* AVATAR – KHUNG & ẢNH ĐỀU NHAU */
   avatarRing: {
     width: 68,
     height: 68,
@@ -351,88 +334,42 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarLetter: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#FFF",
-  },
+  avatarLetter: { fontSize: 26, fontWeight: "800", color: "#FFF" },
 
   doctorInfo: { flex: 1 },
-  doctorName: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "800",
-    color: COLORS.textPrimary,
-  },
-  specialization: {
-    marginTop: 4,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  experience: {
-    marginTop: 6,
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-  },
-
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-    backgroundColor: "#ECFDF5",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  ratingNumber: {
-    fontWeight: "800",
-    color: "#065F46",
-  },
-  ratingLabel: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: "600",
-    color: "#047857",
-  },
-  ratingCountText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-  },
-  noRatingText: {
-    marginTop: 10,
-    fontSize: FONT_SIZE.sm,
-    fontStyle: "italic",
-    color: COLORS.textSecondary,
-  },
 
   slotLabel: {
     marginBottom: SPACING.md,
     fontWeight: "700",
-    color: COLORS.textPrimary,
   },
-  slotsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: SPACING.md,
+
+  /* ===== SLOT – KHÔNG WIDTH ===== */
+  slotRow: {
+    justifyContent: "space-between",
+    marginBottom: SPACING.md,
   },
-  slotWrapper: { width: SLOT_WIDTH },
 
   slot: {
+    flex: 1,
+    marginHorizontal: SPACING.xs,
     paddingVertical: 16,
     alignItems: "center",
     borderRadius: BORDER_RADIUS.lg,
     backgroundColor: "#ECFDF5",
     borderWidth: 2,
     borderColor: "#86EFAC",
-    gap: 4,
   },
+
   slotLow: {
     backgroundColor: "#FFFBEB",
     borderColor: "#FED7AA",
   },
+
   slotCritical: {
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
   },
+
   slotTime: {
     fontSize: FONT_SIZE.lg,
     fontWeight: "900",
@@ -446,4 +383,11 @@ const styles = StyleSheet.create({
   criticalText: { color: "#B91C1C" },
 
   list: { paddingBottom: 120 },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: { marginTop: SPACING.lg },
 });

@@ -277,7 +277,7 @@ export default function BookByDoctor() {
           <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chọn bác sĩ</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("PatientHome")}>
+        <TouchableOpacity onPress={() => navigation.navigate("HomeScreen")}>
           <Ionicons name="home" size={26} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>

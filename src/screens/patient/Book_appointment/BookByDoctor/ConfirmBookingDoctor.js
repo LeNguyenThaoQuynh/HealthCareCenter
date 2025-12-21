@@ -100,104 +100,140 @@ export default function ConfirmBookingDoctor() {
   }, [doctor, selectedDate, timeSlot, navigation]);
 
   const handleConfirm = async () => {
-    if (loading) return;
-    setLoading(true);
+  if (loading) return;
+  setLoading(true);
 
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error("Vui lòng đăng nhập lại");
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Vui lòng đăng nhập lại");
 
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("full_name, phone")
-        .eq("id", user.id)
-        .single();
+    const { data: profile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("full_name, phone")
+      .eq("id", user.id)
+      .single();
 
-      if (profileError || !profile) {
-        throw new Error(
-          "Không tìm thấy thông tin cá nhân. Vui lòng cập nhật hồ sơ."
-        );
-      }
-
-      const vietnamDate = new Date(
-        `${selectedDate}T${timeSlot.start}:00+07:00`
+    if (profileError || !profile) {
+      throw new Error(
+        "Không tìm thấy thông tin cá nhân. Vui lòng cập nhật hồ sơ."
       );
-      const appointmentDateTime = vietnamDate.toISOString().slice(0, 19);
+    }
 
-      const appointmentData = {
-        user_id: user.id,
-        doctor_id: doctor.id,
-        appointment_date: appointmentDateTime,
-        date: selectedDate,
-        slot_id: timeSlot.slot_id,
-        department_id: doctor.department_id || null,
-        status: "pending",
-        patient_name: profile.full_name?.trim() || "Bệnh nhân",
-        patient_phone: profile.phone?.replace(/\D/g, "") || "",
-        price: servicePrice, // ← Giá động, phù hợp cả consultation & imaging
-      };
+    const vietnamDate = new Date(
+      `${selectedDate}T${timeSlot.start}:00+07:00`
+    );
+    const appointmentDateTime = vietnamDate.toISOString().slice(0, 19);
 
-      const { data: appointment, error } = await supabase
-        .from("appointments")
-        .insert(appointmentData)
-        .select()
-        .single();
+    const appointmentData = {
+      user_id: user.id,
+      doctor_id: doctor.id,
+      appointment_date: appointmentDateTime,
+      date: selectedDate,
+      slot_id: timeSlot.slot_id,
+      department_id: doctor.department_id || null,
+      status: "pending",
+      patient_name: profile.full_name?.trim() || "Bệnh nhân",
+      patient_phone: profile.phone?.replace(/\D/g, "") || "",
+      price: servicePrice,
+    };
 
-      if (error) {
-        if (error.code === "23505") {
-          throw new Error("Khung giờ này đã có người đặt. Vui lòng chọn lại!");
-        }
-        throw error;
-      }
+    const { data: appointment, error } = await supabase
+      .from("appointments")
+      .insert(appointmentData)
+      .select()
+      .single();
 
-      // Format cho màn hình success
-      const dateDisplay = new Date(selectedDate).toLocaleDateString("vi-VN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-      const timeDisplay = timeSlot.display.replace("-", "to").trim();
+if (error) {
+  // ✅ Trùng slot → chỉ báo cho user
+  if (error.code === "23505") {
+    Alert.alert(
+      "Khung giờ đã được đặt",
+      "Bác sĩ đã có lịch trong khung giờ này.\nVui lòng chọn khung giờ khác.",
+      [
+        {
+          text: "Chọn giờ khác",
+          onPress: () => navigation.goBack(),
+        },
+        {
+          text: "Về trang chủ",
+          style: "cancel",
+          onPress: () => navigation.replace("HomeScreen"),
+        },
+      ]
+    );
+    return; // ⛔ KẾT THÚC Ở ĐÂY
+  }
 
+  // ❌ Lỗi thật sự mới throw
+  throw error;
+}
+
+    const dateDisplay = new Date(selectedDate).toLocaleDateString("vi-VN", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    const timeDisplay = timeSlot.display.replace("-", "to").trim();
+
+    Alert.alert(
+  "Đặt lịch thành công 🎉",
+  `Bạn đã đặt lịch với BS. ${doctor.name}
+
+🕒 ${timeSlot.display}
+📅 ${dateDisplay}
+💰 Phí dịch vụ: ${formatPrice(servicePrice)}
+
+Bạn có muốn xem lịch hẹn của mình không?`,
+  [
+    {
+      text: "Màn hình chính",
+      style: "cancel",
+      onPress: () => navigation.replace("HomeScreen"),
+    },
+    {
+      text: "Xem lịch hẹn",
+      onPress: () => navigation.replace("HistoryScreen"),
+    },
+  ]
+);
+
+  } catch (err) {
+    console.error("Lỗi đặt lịch:", err);
+
+    // ✅ TRÙNG SLOT – DB CHẶN
+    if (err.code === "23505") {
       Alert.alert(
-        "Đặt lịch thành công!",
-        `Lịch với BS. ${doctor.name} lúc ${
-          timeSlot.display
-        } ngày ${dateDisplay} đã được xác nhận.\n\nPhí dịch vụ: ${formatPrice(
-          servicePrice
-        )}`,
+        "Khung giờ đã được đặt",
+        "Bác sĩ đã có lịch trong khung giờ này.\nVui lòng chọn khung giờ khác.",
         [
           {
-            text: "Xem chi tiết",
-            onPress: () =>
-              navigation.replace("BookingSuccess", {
-                appointment_id: appointment.id,
-                doctor_name: `BS. ${doctor.name}`,
-                specialization: renderSpecializations(),
-                time: timeDisplay,
-                date: dateDisplay,
-                room: doctor.room_number
-                  ? `P. ${doctor.room_number}`
-                  : "Chưa xác định",
-                price: servicePrice,
-              }),
+            text: "Chọn giờ khác",
+            onPress: () => navigation.goBack(),
           },
-          { text: "OK" },
+          {
+            text: "Về trang chủ",
+            style: "cancel",
+            onPress: () => navigation.replace("HomeScreen"),
+          },
         ]
       );
-    } catch (err) {
-      console.error("Lỗi đặt lịch:", err);
-      Alert.alert(
-        "Đặt lịch thất bại",
-        err.message || "Đã có lỗi xảy ra, vui lòng thử lại"
-      );
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    Alert.alert(
+      "Đặt lịch thất bại",
+      err.message || "Đã có lỗi xảy ra, vui lòng thử lại"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString("vi-VN", {
@@ -232,7 +268,7 @@ export default function ConfirmBookingDoctor() {
           <Ionicons name="arrow-back" size={30} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Xác nhận đặt lịch</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("HistoryScreen")}>
+        <TouchableOpacity onPress={() => navigation.navigate("HomeScreen")}>
           <Ionicons name="home" size={28} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>
