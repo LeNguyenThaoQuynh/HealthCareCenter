@@ -37,7 +37,6 @@ export default function ConfirmBookingDoctor() {
   const [fetchingPrice, setFetchingPrice] = useState(true);
   const [servicePrice, setServicePrice] = useState(150000); // fallback mặc định
 
-  // ==================== FETCH GIÁ THÔNG MINH CHO CẢ CONSULTATION & IMAGING ====================
   useEffect(() => {
     const fetchServicePrice = async () => {
       if (!doctor?.department_name) {
@@ -58,7 +57,6 @@ export default function ConfirmBookingDoctor() {
           .eq("department", doctor.department_name)
           .eq("is_active", true);
 
-        // Nếu có specialization → ưu tiên tìm dịch vụ khớp tên (ví dụ: Doppler)
         if (doctor.specializations && doctor.specializations.length > 0) {
           const mainSpec = doctor.specializations[0];
           query = query.ilike("name", `%${mainSpec}%`);
@@ -78,7 +76,8 @@ export default function ConfirmBookingDoctor() {
             `✅ Giá tìm thấy: ${newPrice}đ cho "${data.name}" (type: ${data.service_type})`
           );
           setServicePrice(newPrice);
-        } else {
+        }
+         else {
           console.warn("⚠️ Không tìm thấy dịch vụ phù hợp → fallback 150.000đ");
         }
       } catch (err) {
