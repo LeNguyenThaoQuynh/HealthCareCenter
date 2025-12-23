@@ -98,7 +98,15 @@ if (error) {
     setHeight("");
     fetchData();
   };
-
+const getBMICategory = (bmi) => {
+  if (!bmi) return { label: "Chưa có", color: "#94A3B8" };
+  const value = parseFloat(bmi);
+  if (value < 18.5) return { label: "Thiếu cân", color: "#F97316" }; 
+  if (value < 23) return { label: "Bình thường", color: "#10B981" }; 
+  if (value < 25) return { label: "Thừa cân", color: "#F59E0B" }; 
+  if (value < 30) return { label: "Béo phì độ 1", color: "#EF4444" }; 
+  return { label: "Béo phì độ 2", color: "#B91C1C" }; 
+};
   const recentData = records.slice(-30);
 
   const chartData = {
@@ -218,23 +226,31 @@ if (error) {
         ) : (
           // Tab History
           <View style={styles.historyList}>
-            {records.length === 0 ? (
-              <Text style={styles.noData}>Chưa có dữ liệu</Text>
-            ) : (
-              records.map((r, i) => (
-                <View key={i} style={styles.historyItem}>
-                  <Text style={styles.historyDate}>
-                    {format(new Date(r.recorded_at), "dd 'tháng' MM, yyyy 'lúc' HH:mm", {
-                      locale: vi,
-                    })}
-                  </Text>
-                  <Text style={styles.historyValue}>
-                    {r.weight_kg} kg • {r.height_cm} cm • BMI {r.bmi}
-                  </Text>
-                </View>
-              ))
-            )}
+  {records.length === 0 ? (
+    <Text style={styles.noData}>Chưa có dữ liệu</Text>
+  ) : (
+    records.map((r, i) => {
+      const bmiCategory = getBMICategory(r.bmi);
+      return (
+        <View key={i} style={styles.historyItem}>
+          <View>
+            <Text style={styles.historyDate}>
+              {format(new Date(r.recorded_at), "dd 'tháng' MM, yyyy 'lúc' HH:mm", {
+                locale: vi,
+              })}
+            </Text>
+            <Text style={styles.historyValue}>
+              {r.weight_kg} kg • {r.height_cm} cm • BMI {r.bmi}
+            </Text>
           </View>
+          <Text style={[styles.bmiCategory, { color: bmiCategory.color }]}>
+            {bmiCategory.label}
+          </Text>
+        </View>
+      );
+    })
+  )}
+</View>
         )}
       </ScrollView>
 
@@ -397,7 +413,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   saveBtnText: { color: "#FFF", fontSize: 17, fontWeight: "700", textAlign: "center" },
-
+bmiCategory: {
+  fontSize: 14,
+  fontWeight: "700",
+  alignSelf: "center", // hoặc flex-end tùy bố cục
+  marginLeft: 10, // khoảng cách với phần dữ liệu
+},
   cancelBtn: {
     padding: 12,
     borderRadius: 12,

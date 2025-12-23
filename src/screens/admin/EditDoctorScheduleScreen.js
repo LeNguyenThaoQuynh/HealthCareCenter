@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import theme from "../../theme/theme";
 
 const { COLORS, GRADIENTS, SPACING, BORDER_RADIUS, SHADOWS } = theme;
+const { width } = Dimensions.get("window");
 
 const WEEKDAYS = [
   "Thứ 2",
@@ -212,251 +214,515 @@ export default function EditDoctorScheduleScreen() {
 
   if (fetching) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#F8FAFC",
-        }}
-      >
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text
-          style={{ marginTop: 16, fontSize: 16, color: COLORS.textSecondary }}
-        >
-          Đang tải lịch làm việc...
-        </Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4f46e5" />
+        <Text style={styles.loadingText}>Đang tải lịch làm việc...</Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-      <StatusBar barStyle="light-content" />
+    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
+      {/* StatusBar riêng biệt */}
+      <StatusBar barStyle="light-content" backgroundColor="#4f46e5" />
 
-      <LinearGradient colors={["#2563EB", "#1E40AF"]} style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-
-        <View style={{ alignItems: "center" }}>
-          <Text style={styles.title}>Sửa lịch làm việc</Text>
-          <Text style={styles.subtitle}>{doctorName || "Bác sĩ"}</Text>
+      {/* HEADER - ĐÃ FIX KHÔNG CÒN TRỐNG */}
+      <LinearGradient 
+        colors={["#4f46e5", "#7c3aed"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerCenter}>
+            <View style={styles.titleContainer}>
+              <Ionicons name="calendar" size={26} color="#FFF" />
+              <Text style={styles.headerTitle}>Chỉnh Sửa Lịch Làm</Text>
+            </View>
+            <Text style={styles.headerSubtitle}>{doctorName || "Bác sĩ"}</Text>
+          </View>
+          
+          <View style={styles.headerRight} />
         </View>
-
-        <View style={{ width: 44 }} />
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* SUMMARY CARD */}
+        <View style={styles.summaryCard}>
+          <LinearGradient
+            colors={["#e0e7ff", "#c7d2fe"]}
+            style={styles.summaryGradient}
+          >
+            <View style={styles.summaryContent}>
+              <Ionicons name="time" size={28} color="#4f46e5" />
+              <View style={styles.summaryTexts}>
+                <Text style={styles.summaryTitle}>Tổng quan lịch làm việc</Text>
+                <Text style={styles.summaryStats}>
+                  {Object.values(schedules).flat().length} ca • {Object.keys(schedules).length}/7 ngày
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
         <Text style={styles.sectionTitle}>Khung giờ làm việc cố định</Text>
 
-        {WEEKDAYS.map((day) => (
-          <View key={day} style={styles.dayBlock}>
-            <View style={styles.dayHeader}>
-              <Text style={styles.dayText}>{day}</Text>
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => addSlot(day)}
-              >
-                <Ionicons name="add" size={18} color="#FFF" />
-                <Text style={styles.addBtnText}>Thêm ca</Text>
-              </TouchableOpacity>
-            </View>
-
-            {(schedules[day] || []).length > 0 ? (
-              schedules[day].map((slot, i) => (
-                <View key={i} style={styles.slotRow}>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={slot.start}
-                    onChangeText={(t) => updateTime(day, i, "start", t)}
-                    placeholder="08:00"
-                    keyboardType="numeric"
-                  />
-                  <Ionicons
-                    name="arrow-forward"
-                    size={18}
-                    color="#64748B"
-                    style={{ marginHorizontal: 12 }}
-                  />
-
-                  <TextInput
-                    style={styles.timeInput}
-                    value={slot.end}
-                    onChangeText={(t) => updateTime(day, i, "end", t)}
-                    placeholder="12:00"
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity
-                    onPress={() => removeSlot(day, i)}
-                    style={{
-                      marginLeft: "auto",
-                      backgroundColor: "#FEE2E2",
-                      padding: 8,
-                      borderRadius: 20,
-                    }}
-                  >
-                    <Ionicons name="trash" size={18} color="#EF4444" />
-                  </TouchableOpacity>
+        {WEEKDAYS.map((day, index) => (
+          <View key={day} style={styles.dayCard}>
+            <LinearGradient
+              colors={["#ffffff", "#f8fafc"]}
+              style={styles.dayCardGradient}
+            >
+              {/* DAY HEADER */}
+              <View style={styles.dayHeader}>
+                <View style={styles.dayInfo}>
+                  <View style={[
+                    styles.dayIconContainer,
+                    { backgroundColor: (schedules[day] || []).length > 0 ? "#dcfce7" : "#f1f5f9" }
+                  ]}>
+                    <Ionicons 
+                      name={(schedules[day] || []).length > 0 ? "checkmark-circle" : "calendar-outline"} 
+                      size={20} 
+                      color={(schedules[day] || []).length > 0 ? "#10b981" : "#94a3b8"} 
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.dayText}>{day}</Text>
+                    <Text style={styles.daySubtext}>
+                      {(schedules[day] || []).length > 0 
+                        ? `${(schedules[day] || []).length} ca làm việc` 
+                        : "Nghỉ cả ngày"}
+                    </Text>
+                  </View>
                 </View>
-              ))
-            ) : (
-              <Text style={styles.emptyDay}>
-                Chưa có khung giờ • Nghỉ cả ngày
-              </Text>
-            )}
+                
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => addSlot(day)}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={["#4f46e5", "#7c3aed"]}
+                    style={styles.addButtonGradient}
+                  >
+                    <Ionicons name="add" size={18} color="#FFF" />
+                    <Text style={styles.addButtonText}>Thêm ca</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              {/* TIME SLOTS */}
+              <View style={styles.slotsContainer}>
+                {(schedules[day] || []).length > 0 ? (
+                  schedules[day].map((slot, i) => (
+                    <View key={i} style={styles.slotCard}>
+                      <LinearGradient
+                        colors={["#f0f9ff", "#e0f2fe"]}
+                        style={styles.slotGradient}
+                      >
+                        <View style={styles.slotContent}>
+                          <View style={styles.timeInputs}>
+                            <View style={styles.timeInputContainer}>
+                              <Ionicons name="play" size={16} color="#0ea5e9" style={{ marginRight: 6 }} />
+                              <TextInput
+                                style={styles.timeInput}
+                                value={slot.start}
+                                onChangeText={(t) => updateTime(day, i, "start", t)}
+                                placeholder="08:00"
+                                keyboardType="numeric"
+                                placeholderTextColor="#94a3b8"
+                                selectionColor="#4f46e5"
+                              />
+                              <Text style={styles.timeLabel}>Bắt đầu</Text>
+                            </View>
+
+                            <Ionicons
+                              name="arrow-forward"
+                              size={20}
+                              color="#cbd5e1"
+                              style={{ marginHorizontal: 16 }}
+                            />
+
+                            <View style={styles.timeInputContainer}>
+                              <Ionicons name="stop" size={16} color="#ef4444" style={{ marginRight: 6 }} />
+                              <TextInput
+                                style={styles.timeInput}
+                                value={slot.end}
+                                onChangeText={(t) => updateTime(day, i, "end", t)}
+                                placeholder="12:00"
+                                keyboardType="numeric"
+                                placeholderTextColor="#94a3b8"
+                                selectionColor="#4f46e5"
+                              />
+                              <Text style={styles.timeLabel}>Kết thúc</Text>
+                            </View>
+                          </View>
+
+                          <TouchableOpacity
+                            onPress={() => removeSlot(day, i)}
+                            style={styles.deleteButton}
+                            activeOpacity={0.7}
+                          >
+                            <LinearGradient
+                              colors={["#fee2e2", "#fecaca"]}
+                              style={styles.deleteButtonGradient}
+                            >
+                              <Ionicons name="trash" size={16} color="#ef4444" />
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      </LinearGradient>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptySlot}>
+                    <Ionicons name="time-outline" size={32} color="#cbd5e1" />
+                    <Text style={styles.emptySlotText}>Chưa có khung giờ làm việc</Text>
+                    <Text style={styles.emptySlotHint}>Nhấn "Thêm ca" để bắt đầu</Text>
+                  </View>
+                )}
+              </View>
+            </LinearGradient>
           </View>
         ))}
 
+        {/* SAVE BUTTON */}
         <TouchableOpacity
           disabled={loading}
           onPress={handleSave}
-          style={styles.saveBtn}
+          style={styles.saveContainer}
+          activeOpacity={0.9}
         >
           <LinearGradient
-            colors={GRADIENTS.primaryButton}
-            style={styles.saveBtnGradient}
+            colors={["#4f46e5", "#7c3aed"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.saveGradient}
           >
             {loading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
-                <Ionicons name="save" size={26} color="#FFF" />
-                <Text style={styles.saveBtnText}>LƯU THAY ĐỔI</Text>
+                <Ionicons name="save" size={24} color="#FFF" />
+                <Text style={styles.saveText}>LƯU THAY ĐỔI LỊCH LÀM VIỆC</Text>
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* NOTE */}
+        <View style={styles.noteCard}>
+          <Ionicons name="information-circle-outline" size={16} color="#64748b" />
+          <Text style={styles.noteText}>
+            Lịch làm việc sẽ được áp dụng cho tất cả các tuần
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-// Styles giống hệt CreateDoctorScheduleScreen
+/* ================= STYLES ================= */
 const styles = {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  // ✅ HEADER ĐÃ FIX - SÁT TOP + CONTENT PADDING TOP 60
   header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 0,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 64 : 44,
-    paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.lg,
-    borderBottomLeftRadius: BORDER_RADIUS.xxxl,
-    borderBottomRightRadius: BORDER_RADIUS.xxxl,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 4 : 2,
   },
-  backBtn: {
+  backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  title: {
+  headerCenter: {
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerTitle: {
+    color: "#FFF",
     fontSize: 22,
     fontWeight: "800",
-    color: "#FFF",
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
-  subtitle: {
-    fontSize: 15,
-    color: "#E0F2FE",
+  headerSubtitle: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 13,
+    fontWeight: "500",
     marginTop: 4,
   },
+  headerRight: {
+    width: 44,
+  },
   content: {
-    padding: SPACING.xl,
-    paddingBottom: 120,
+    paddingTop: 60, // ✅ CONTENT CÓ PADDING TOP 60
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  summaryCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  summaryGradient: {
+    padding: 24,
+  },
+  summaryContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  summaryTexts: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e293b",
+  },
+  summaryStats: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 4,
+    fontWeight: "600",
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
-    marginBottom: SPACING.lg,
-    color: COLORS.textPrimary,
+    color: "#1e293b",
+    marginBottom: 20,
+    marginLeft: 4,
   },
-  dayBlock: {
-    backgroundColor: "#F1F5F9",
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
-    marginBottom: SPACING.xl,
+  dayCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+  },
+  dayCardGradient: {
+    padding: 20,
   },
   dayHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: SPACING.sm,
-    marginBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
+    marginBottom: 16,
+  },
+  dayInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
+  dayIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
   },
   dayText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.textPrimary,
-  },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  addBtnText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: "#FFF",
+    fontSize: 17,
     fontWeight: "700",
+    color: "#1e293b",
   },
-  slotRow: {
+  daySubtext: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  addButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  addButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.xl,
-    marginTop: SPACING.md,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-    ...SHADOWS.card,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  addButtonText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  slotsContainer: {
+    marginTop: 4,
+  },
+  slotCard: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  slotGradient: {
+    padding: 16,
+  },
+  slotContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  timeInputs: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  timeInputContainer: {
+    alignItems: "center",
   },
   timeInput: {
     width: 88,
-    height: 46,
-    backgroundColor: "#F8FAFC",
-    borderRadius: BORDER_RADIUS.lg,
+    height: 52,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
     textAlign: "center",
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1e293b",
+    borderWidth: 2,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 12,
   },
-  emptyDay: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 10,
+  timeLabel: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 6,
+    fontWeight: "500",
   },
-  saveBtn: {
-    marginTop: SPACING.xxl,
-    borderRadius: BORDER_RADIUS.xl,
+  deleteButton: {
+    marginLeft: 16,
+    borderRadius: 12,
     overflow: "hidden",
-    ...SHADOWS.large,
   },
-  saveBtnGradient: {
+  deleteButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptySlot: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    backgroundColor: "#f8fafc",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#e2e8f0",
+    borderStyle: "dashed",
+  },
+  emptySlotText: {
+    fontSize: 15,
+    color: "#64748b",
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  emptySlotHint: {
+    fontSize: 13,
+    color: "#94a3b8",
+    marginTop: 4,
+  },
+  saveContainer: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginTop: 32,
+    marginBottom: 20,
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  saveGradient: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 20,
+    gap: 12,
   },
-  saveBtnText: {
+  saveText: {
     fontSize: 17,
     fontWeight: "800",
     color: "#FFF",
-    marginLeft: 12,
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
+  },
+  noteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(100, 116, 139, 0.05)",
+    marginTop: 20,
+    marginBottom: 40,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(100, 116, 139, 0.1)",
+    gap: 8,
+  },
+  noteText: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: "500",
   },
 };

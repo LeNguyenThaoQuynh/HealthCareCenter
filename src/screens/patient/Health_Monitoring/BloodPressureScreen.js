@@ -39,6 +39,9 @@ export default function BloodPressureScreen({ navigation }) {
   const [dia, setDia] = useState("");
   const [pulse, setPulse] = useState("");
 
+  const [sysFocused, setSysFocused] = useState(false);
+const [diaFocused, setDiaFocused] = useState(false);
+const [pulseFocused, setPulseFocused] = useState(false);
   const fetchData = async () => {
     setLoading(true);
 
@@ -110,7 +113,33 @@ export default function BloodPressureScreen({ navigation }) {
     setPulse("");
     fetchData();
   };
+// Thêm hàm này vào component
+const getBloodPressureCategory = (systolic, diastolic) => {
+  if (!systolic || !diastolic) return { label: "Chưa có", color: "#94A3B8" };
 
+  const sys = Number(systolic);
+  const dia = Number(diastolic);
+
+  if (sys < 90 && dia < 60) {
+    return { label: "Huyết áp thấp", color: "#3B82F6" };
+  }
+  if (sys < 120 && dia < 80) {
+    return { label: "Bình thường", color: "#10B981" };
+  }
+  if (sys <= 129 && dia < 80) {
+    return { label: "Tăng tối ưu", color: "#FBBF24" };
+  }
+  if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
+    return { label: "Tăng giai đoạn 1", color: "#F97316" };
+  }
+  if ((sys >= 140 && sys <= 159) || (dia >= 90 && dia <= 99)) {
+    return { label: "Tăng giai đoạn 2", color: "#EF4444" };
+  }
+  if (sys >= 160 || dia >= 100) {
+    return { label: "Tăng giai đoạn 3", color: "#B91C1C" };
+  }
+  return { label: "Không xác định", color: "#94A3B8" };
+};
   const recentData = records.slice(-30);
 
   const chartData = {
@@ -220,23 +249,32 @@ export default function BloodPressureScreen({ navigation }) {
           </>
         ) : (
           <View style={styles.historyList}>
-            {records.length === 0 ? (
-              <Text style={styles.noData}>Chưa có dữ liệu</Text>
-            ) : (
-              records.map((r) => (
-                <View key={r.id} style={styles.historyItem}>
-                  <Text style={styles.historyDate}>
-                    {format(new Date(r.recorded_at), "dd/MM/yyyy HH:mm", {
-                      locale: vi,
-                    })}
-                  </Text>
-                  <Text style={styles.historyValue}>
-                    {r.systolic_bp}/{r.diastolic_bp} mmHg
-                  </Text>
-                </View>
-              ))
-            )}
+  {records.length === 0 ? (
+    <Text style={styles.noData}>Chưa có dữ liệu</Text>
+  ) : (
+    records.map((r) => {
+      const category = getBloodPressureCategory(r.systolic_bp, r.diastolic_bp);
+      return (
+        <View key={r.id} style={styles.historyItem}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.historyDate}>
+              {format(new Date(r.recorded_at), "dd/MM/yyyy HH:mm", {
+                locale: vi,
+              })}
+            </Text>
+            <Text style={styles.historyValue}>
+              {r.systolic_bp}/{r.diastolic_bp} mmHg
+              {r.heart_rate ? ` • Mạch: ${r.heart_rate}` : ""}
+            </Text>
           </View>
+          <Text style={[styles.bpCategory, { color: category.color }]}>
+            {category.label}
+          </Text>
+        </View>
+      );
+    })
+  )}
+</View>
         )}
       </ScrollView>
 
@@ -247,58 +285,105 @@ export default function BloodPressureScreen({ navigation }) {
         <Ionicons name="add" size={32} color="#FFF" />
       </TouchableOpacity>
 
-      <Modal
-        animationType="slide"
-        transparent
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+     <Modal
+  animationType="slide"
+  transparent
+  visible={modalVisible}
+  onRequestClose={() => setModalVisible(false)}
+>
+  <View style={styles.modalWrapper}>
+    <View style={styles.modalBox}>
+      <Text style={styles.modalTitle}>Nhập số đo huyết áp</Text>
+
+      {/* === TÂM THU === */}
+      <View style={styles.field}>
+        <Text style={styles.label}>Tâm thu (Systolic)</Text>
+        <TextInput
+          placeholder="mmHg • Ví dụ: 120"
+          keyboardType="numeric"
+          value={sys}
+          onChangeText={setSys}
+          style={styles.input}
+        />
+      </View>
+
+      {/* === TÂM TRƯƠNG === */}
+      <View style={styles.field}>
+        <Text style={styles.label}>Tâm trương (Diastolic)</Text>
+        <TextInput
+          placeholder="mmHg • Ví dụ: 80"
+          keyboardType="numeric"
+          value={dia}
+          onChangeText={setDia}
+          style={styles.input}
+        />
+      </View>
+
+      {/* === MẠCH === */}
+      <View style={styles.field}>
+        <Text style={styles.label}>Nhịp tim (tùy chọn)</Text>
+        <TextInput
+          placeholder="lần/phút • Ví dụ: 72"
+          keyboardType="numeric"
+          value={pulse}
+          onChangeText={setPulse}
+          style={styles.input}
+        />
+      </View>
+
+      {/* === BUTTON === */}
+      <TouchableOpacity style={styles.saveBtn} onPress={saveRecord}>
+        <Text style={styles.saveBtnText}>Lưu số đo</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.cancelBtn}
+        onPress={() => setModalVisible(false)}
       >
-        <View style={styles.modalWrapper}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Nhập số đo huyết áp</Text>
+        <Text style={styles.cancelBtnText}>Hủy</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
-            <TextInput
-              placeholder="Tâm thu (mmHg)"
-              style={styles.input}
-              keyboardType="numeric"
-              value={sys}
-              onChangeText={setSys}
-            />
-
-            <TextInput
-              placeholder="Tâm trương (mmHg)"
-              style={styles.input}
-              keyboardType="numeric"
-              value={dia}
-              onChangeText={setDia}
-            />
-
-            <TextInput
-              placeholder="Mạch (tuỳ chọn)"
-              style={styles.input}
-              keyboardType="numeric"
-              value={pulse}
-              onChangeText={setPulse}
-            />
-
-            <TouchableOpacity style={styles.saveBtn} onPress={saveRecord}>
-              <Text style={styles.saveBtnText}>Lưu</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.cancelBtnText}>Hủy</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  inputContainer: {
+  position: 'relative',
+  marginBottom: 20,
+},
+
+floatingLabel: {
+  position: 'absolute',
+  top: 14,
+  left: 14,
+  fontSize: 16,
+  color: '#94A3B8',
+  backgroundColor: '#F1F5F9', // nền input
+  paddingHorizontal: 4,
+  zIndex: 1,
+  transition: 'all 0.2s ease', // hiệu ứng mượt
+},
+
+floatingLabelActive: {
+  top: -8,
+  fontSize: 12,
+  color: '#2563EB',
+  backgroundColor: '#F1F5F9',
+},
+
+input: {
+  backgroundColor: "#F1F5F9",
+  padding: 14,
+  paddingHorizontal: 14,
+  borderRadius: 10,
+  fontSize: 16,
+  borderWidth: 1,
+  borderColor: "#E2E8F0",
+},
   container: { flex: 1, backgroundColor: "#F8FAFC" },
   header: {
     paddingTop: 60,
@@ -310,7 +395,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   title: { fontSize: 20, fontWeight: "800", color: "#FFF" },
-
+bpCategory: {
+  fontSize: 14,
+  fontWeight: "700",
+  alignSelf: "center",
+  marginLeft: 12,
+},
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#E0E7FF",

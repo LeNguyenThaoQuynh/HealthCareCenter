@@ -8,6 +8,8 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +19,7 @@ import {
   useFocusEffect,
 } from "@react-navigation/native";
 import { useCallback } from "react";
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
 
 import { useBookingFlow } from "../../../../controllers/patient/bookingController";
 import {
@@ -27,6 +30,8 @@ import {
   FONT_SIZE,
   SHADOWS,
 } from "../../../../theme/theme";
+
+const { width } = Dimensions.get('window');
 
 export default function SelectDepartment() {
   const navigation = useNavigation();
@@ -67,96 +72,161 @@ export default function SelectDepartment() {
   }, [specializations, search]);
 
   const renderItem = useCallback(
-    ({ item }) => (
-      <TouchableOpacity
-        style={styles.item}
-        onPress={() =>
-          navigation.navigate("SelectTimeSlot", {
-            date,
-            specialization: item.name,
-            price: item.price, // GIÁ THẬT TỪ BẢNG SERVICES
-          })
-        }
-        activeOpacity={0.8}
-      >
-        <View style={styles.left}>
-          <View style={styles.icon}>
-            <Ionicons name="medical-outline" size={28} color="#FFF" />
+    ({ item, index }) => (
+      <Animated.View entering={FadeInUp.delay(index * 80)}>
+        <TouchableOpacity
+          style={styles.item}
+          onPress={() =>
+            navigation.navigate("SelectTimeSlot", {
+              date,
+              specialization: item.name,
+              price: item.price,
+            })
+          }
+          activeOpacity={0.7}
+        >
+          <View style={styles.itemContent}>
+            <LinearGradient
+              colors={[COLORS.primary, "#8B5CF6"]}
+              style={styles.iconGradient}
+            >
+              <Ionicons name="medical-outline" size={26} color="#FFF" />
+            </LinearGradient>
+            
+            <View style={styles.textContent}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statBadge}>
+                  <Ionicons name="people-outline" size={14} color="#64748B" />
+                  <Text style={styles.statText}>{item.doctorCount} ca</Text>
+                </View>
+                <View style={styles.divider} />
+               
+              </View>
+            </View>
           </View>
-          <View>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.count}>{item.doctorCount} bác sĩ có lịch</Text>
+          
+          <View style={styles.rightContent}>
+            <LinearGradient
+              colors={["#10B981", "#0D946E"]}
+              style={styles.priceBadge}
+            >
+              <Text style={styles.price}>
+                {(item.price / 1000).toFixed(0)}.000đ
+              </Text>
+            </LinearGradient>
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E1" />
           </View>
-        </View>
-
-        <View style={styles.right}>
-          <Text style={styles.price}>
-            {item.price.toLocaleString("vi-VN")}đ
-          </Text>
-          <Ionicons name="chevron-forward" size={24} color="#94A3B8" />
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     ),
     [navigation, date]
   );
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      
       {/* HEADER */}
-      <LinearGradient colors={GRADIENTS.header} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color="#FFF" />
-        </TouchableOpacity>
-
+      <LinearGradient 
+        colors={[COLORS.primary, "#4F46E5"]}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
         <View style={styles.headerContent}>
-          <Text style={styles.title}>Chọn chuyên khoa</Text>
-          <Text style={styles.date}>{headerDate}</Text>
-        </View>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
+          </TouchableOpacity>
 
-        <View style={{ width: 40 }} />
+          <View style={styles.headerCenter}>
+            <Animated.Text entering={FadeInDown} style={styles.title}>
+              Chọn Chuyên Khoa
+            </Animated.Text>
+            <Animated.Text 
+              entering={FadeInDown.delay(100)}
+              style={styles.date}
+            >
+              {headerDate}
+            </Animated.Text>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.homeButton}
+            onPress={() => navigation.navigate("HomeScreen")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="home-outline" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       {/* SEARCH BAR */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={22} color="#64748B" />
-          <TextInput
-            placeholder="Tìm chuyên khoa..."
-            value={search}
-            onChangeText={setSearch}
-            style={styles.searchInput}
-            placeholderTextColor="#94A3B8"
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={22} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
+      <Animated.View entering={FadeInDown.delay(200)} style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={20} color={COLORS.primary} />
+            <TextInput
+              placeholder="Tìm chuyên khoa..."
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+              placeholderTextColor="#94A3B8"
+            />
+            {search.length > 0 && (
+              <TouchableOpacity 
+                onPress={() => setSearch("")}
+                style={styles.clearButton}
+              >
+                <Ionicons name="close-circle" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* DANH SÁCH */}
+      {/* CONTENT */}
       {loadingSpecs ? (
-        <View style={styles.center}>
+        <Animated.View entering={ZoomIn} style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>
-            Đang tải danh sách chuyên khoa...
-          </Text>
-        </View>
+          <Text style={styles.loadingText}>Đang tải danh sách chuyên khoa...</Text>
+          <Text style={styles.loadingSubtext}>Vui lòng chờ trong giây lát</Text>
+        </Animated.View>
       ) : filtered.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="briefcase-outline" size={90} color="#CBD5E1" />
-          <Text style={styles.emptyText}>
-            {search
-              ? "Không tìm thấy chuyên khoa"
-              : "Không có lịch khám ngày này"}
+        <Animated.View entering={FadeInUp} style={styles.emptyContainer}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="briefcase-outline" size={80} color="#CBD5E1" />
+          </View>
+          <Text style={styles.emptyTitle}>
+            {search ? "Không tìm thấy chuyên khoa" : "Không có lịch khám"}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {search 
+              ? "Thử tìm kiếm với từ khóa khác"
+              : "Không có lịch khám vào ngày này. Vui lòng chọn ngày khác."
+            }
           </Text>
           {search && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Text style={styles.clearText}>Xóa bộ lọc tìm kiếm</Text>
+            <TouchableOpacity 
+              style={styles.clearFilterButton}
+              onPress={() => setSearch("")}
+            >
+              <LinearGradient
+                colors={[COLORS.primary, "#4F46E5"]}
+                style={styles.clearFilterGradient}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#FFF" />
+                <Text style={styles.clearFilterText}>Xóa bộ lọc tìm kiếm</Text>
+              </LinearGradient>
             </TouchableOpacity>
           )}
-        </View>
+        </Animated.View>
       ) : (
         <FlatList
           data={filtered}
@@ -164,6 +234,16 @@ export default function SelectDepartment() {
           keyExtractor={(item) => item.name}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Animated.View entering={FadeInDown} style={styles.listHeader}>
+              <Text style={styles.listHeaderTitle}>
+                Có {filtered.length} chuyên khoa có lịch
+              </Text>
+              <Text style={styles.listHeaderSubtitle}>
+                Chọn chuyên khoa để xem khung giờ khám
+              </Text>
+            </Animated.View>
+          }
         />
       )}
     </View>
@@ -176,119 +256,251 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xl,
-    borderBottomLeftRadius: BORDER_RADIUS.xxl,
-    borderBottomRightRadius: BORDER_RADIUS.xxl,
   },
-  headerContent: {
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
     alignItems: "center",
+  },
+  headerCenter: {
     flex: 1,
-    marginRight: 40,
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#FFF",
+    letterSpacing: 0.5,
   },
   date: {
-    fontSize: FONT_SIZE.sm,
-    color: "#FFFFFFCC",
-    marginTop: 6,
-    fontWeight: "600",
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.9)",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  homeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   searchWrapper: {
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  searchContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
   },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF",
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: 16,
-    borderRadius: BORDER_RADIUS.xl,
-    ...SHADOWS.card,
-    gap: SPACING.md,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 20,
+    gap: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: FONT_SIZE.lg,
+    fontSize: 16,
     color: COLORS.textPrimary,
+    fontWeight: "500",
+  },
+  clearButton: {
+    padding: 4,
   },
   item: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFF",
-    marginHorizontal: SPACING.xl,
-    marginBottom: SPACING.md,
-    padding: SPACING.xl,
-    borderRadius: BORDER_RADIUS.xl,
-    ...SHADOWS.card,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginBottom: 14,
+    padding: 20,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: "#F1F5F9",
   },
-  left: {
+  itemContent: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  icon: {
+  iconGradient: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: SPACING.lg,
+    marginRight: 16,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  textContent: {
+    flex: 1,
   },
   name: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: COLORS.textPrimary,
+    marginBottom: 8,
   },
-  count: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  right: {
-    alignItems: "flex-end",
+  statBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statText: {
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  divider: {
+    width: 1,
+    height: 16,
+    backgroundColor: "#E2E8F0",
+  },
+  rightContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  priceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    minWidth: 100,
+    alignItems: "center",
   },
   price: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "900",
-    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textAlign: "center",
   },
-  center: {
+  list: {
+    paddingTop: 10,
+    paddingBottom: 100,
+  },
+  listHeader: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  listHeaderTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+  },
+  listHeaderSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 40,
   },
-  emptyText: {
-    marginTop: SPACING.xl,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: "800",
+  emptyIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "700",
     color: COLORS.textPrimary,
     textAlign: "center",
+    marginBottom: 8,
   },
-  clearText: {
-    marginTop: SPACING.lg,
-    color: COLORS.primary,
-    fontWeight: "700",
-    fontSize: FONT_SIZE.base,
-  },
-  loadingText: {
-    marginTop: SPACING.lg,
-    fontSize: FONT_SIZE.base,
+  emptySubtitle: {
+    fontSize: 15,
     color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 25,
   },
-  list: {
-    paddingTop: SPACING.md,
-    paddingBottom: 100,
+  clearFilterButton: {
+    width: '80%',
+  },
+  clearFilterGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 25,
+    gap: 10,
+  },
+  clearFilterText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

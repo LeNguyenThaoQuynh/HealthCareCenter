@@ -231,13 +231,24 @@ export default function RegisterScreen() {
           { text: "OK", onPress: () => navigation.replace("RoleRedirect") },
         ]);
       }
-    } catch (error) {
-      console.error("Registration error:", error);
-      const message = error.message?.includes("User already registered")
-        ? "This email is already registered. Please use another email or log in."
-        : error.message || "An unknown error occurred.";
-      Alert.alert("Registration Error", message);
-    } finally {
+    }  catch (error) {
+  let message = "Có lỗi xảy ra";
+
+  if (error.code === "EMAIL_EXISTS") {
+    message = error.message;
+
+    setErrors((prev) => ({
+      ...prev,
+      email: error.message,
+    }));
+  } else if (error.message) {
+    message = error.message;
+  }
+
+  Alert.alert("Registration Error", message);
+}
+
+finally {
       setLoading(false);
       buttonScale.value = withSpring(1);
     }

@@ -47,6 +47,8 @@ const EditProfileScreen = ({ navigation }) => {
     gender: "",
   });
 
+  const [phoneError, setPhoneError] = useState(""); // Lỗi số điện thoại
+
   useEffect(() => {
     fetchUserProfile();
   }, []);
@@ -146,11 +148,34 @@ const EditProfileScreen = ({ navigation }) => {
     }
   };
 
+  const validatePhone = (phone) => {
+    const cleaned = phone.replace(/\D/g, ""); // Chỉ lấy số
+    if (!cleaned) {
+      setPhoneError("Vui lòng nhập số điện thoại");
+      return false;
+    }
+    if (cleaned.length !== 10) {
+      setPhoneError("Số điện thoại phải có đúng 10 chữ số");
+      return false;
+    }
+    if (!cleaned.startsWith("0")) {
+      setPhoneError("Số điện thoại phải bắt đầu bằng 0");
+      return false;
+    }
+    setPhoneError(""); // Xóa lỗi nếu hợp lệ
+    return true;
+  };
+
   const handleUpdate = async () => {
+    // Validate số điện thoại
+    if (!validatePhone(formData.phone)) return;
+
+    // Validate tên
     if (!formData.fullName.trim()) {
       Alert.alert("Lỗi", "Vui lòng nhập họ và tên");
       return;
     }
+
     setSaving(true);
     try {
       await updateProfile(formData);
@@ -242,13 +267,23 @@ const EditProfileScreen = ({ navigation }) => {
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Số điện thoại</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  phoneError && { borderBottomColor: "red", borderBottomWidth: 2 },
+                ]}
                 value={formData.phone}
-                onChangeText={(t) => setFormData({ ...formData, phone: t })}
+                onChangeText={(t) => {
+                  setFormData({ ...formData, phone: t });
+                  setPhoneError(""); // Xóa lỗi khi nhập lại
+                }}
                 keyboardType="phone-pad"
                 placeholder="Nhập số điện thoại"
                 placeholderTextColor={COLORS.textLight}
+                maxLength={10} // Giới hạn tối đa 10 số
               />
+              {phoneError ? (
+                <Text style={styles.errorText}>{phoneError}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -404,6 +439,14 @@ const styles = StyleSheet.create({
 
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 16, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
+
+  // Thêm style cho lỗi
+  errorText: {
+    color: "red",
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: "500",
+  },
 });
 
 export default EditProfileScreen;

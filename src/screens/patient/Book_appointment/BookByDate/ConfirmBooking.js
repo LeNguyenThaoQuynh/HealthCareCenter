@@ -9,12 +9,17 @@ import {
   ScrollView,
   TextInput,
   Platform,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useBookingFlow } from "../../../../controllers/patient/bookingController";
 import { supabase } from "../../../../api/supabase";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+
+const { width } = Dimensions.get('window');
 
 /* ================= HELPERS ================= */
 
@@ -112,7 +117,7 @@ export default function ConfirmBooking() {
       .from("appointments")
       .select("id, status")
       .eq("user_id", user.id)
-      .eq("doctor_id", doctor.id) // ✅ CHỈ CHẶN CÙNG BÁC SĨ
+      .eq("doctor_id", doctor.id)
       .eq("date", date)
       .in("status", ["pending", "confirmed", "paid"]);
 
@@ -171,24 +176,22 @@ export default function ConfirmBooking() {
         `${slot.start_time} - ${slot.end_time || "Kết thúc"}`;
 
       Alert.alert(
-  "Đặt lịch thành công",
-  `Bạn có muốn xem lịch hẹn của mình ngay không?\n\nMã phiếu khám: #${String(
-    appointment.id
-  ).padStart(6, "0")}`,
-  [
-    {
-      text: "Quay về trang chủ",
-      style: "cancel",
-      onPress: () => navigation.replace("HomeScreen"),
-    },
-    {
-      text: "Xem lịch hẹn",
-      onPress: () => navigation.replace("HistoryScreen"),
-    },
-  ]
-);
-
-
+        "Đặt lịch thành công",
+        `Bạn có muốn xem lịch hẹn của mình ngay không?\n\nMã phiếu khám: #${String(
+          appointment.id
+        ).padStart(6, "0")}`,
+        [
+          {
+            text: "Quay về trang chủ",
+            style: "cancel",
+            onPress: () => navigation.replace("HomeScreen"),
+          },
+          {
+            text: "Xem lịch hẹn",
+            onPress: () => navigation.replace("HistoryScreen"),
+          },
+        ]
+      );
     } else {
       const msg =
         result.error?.includes("duplicate") ||
@@ -210,24 +213,60 @@ export default function ConfirmBooking() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#667EEA" />
+      
       {/* ===== HEADER ===== */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
+        <LinearGradient
+          colors={["#667EEA", "#764BA2"]}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
         >
-          <Ionicons name="arrow-back" size={26} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Xác nhận đặt lịch</Text>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title} numberOfLines={1}>
+                Xác Nhận Đặt Lịch
+              </Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                Kiểm tra thông tin cuối cùng
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.homeButton}
+              onPress={() => navigation.navigate("HomeScreen")}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="home-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ===== APPOINTMENT INFO ===== */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Chi tiết lịch khám</Text>
+        {/* ===== APPOINTMENT INFO CARD ===== */}
+        <Animated.View entering={FadeInUp.delay(200)} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <LinearGradient
+              colors={["#667EEA", "#764BA2"]}
+              style={styles.cardIcon}
+            >
+              <Ionicons name="calendar-outline" size={24} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.cardTitle}>Chi tiết lịch khám</Text>
+          </View>
           <View style={styles.divider} />
 
           <InfoRow
@@ -257,11 +296,19 @@ export default function ConfirmBooking() {
               value={`P. ${doctor.room_number}`}
             />
           )}
-        </View>
+        </Animated.View>
 
-        {/* ===== PATIENT INFO ===== */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Thông tin bệnh nhân</Text>
+        {/* ===== PATIENT INFO CARD ===== */}
+        <Animated.View entering={FadeInUp.delay(300)} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <LinearGradient
+              colors={["#10B981", "#059669"]}
+              style={styles.cardIcon}
+            >
+              <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.cardTitle}>Thông tin bệnh nhân</Text>
+          </View>
           <View style={styles.divider} />
 
           <InputGroup
@@ -279,43 +326,100 @@ export default function ConfirmBooking() {
             keyboardType="phone-pad"
             maxLength={11}
           />
-        </View>
+          
+          <View style={styles.noteContainer}>
+            <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+            <Text style={styles.noteText}>
+              Thông tin này sẽ được sử dụng để liên hệ xác nhận lịch hẹn
+            </Text>
+          </View>
+        </Animated.View>
 
-        {/* ===== PRICE ===== */}
-        <View style={styles.priceCardContainer}>
-          <LinearGradient
-            colors={["#10B981", "#059669"]}
-            style={styles.priceCard}
-          >
-            <Text style={styles.priceLabel}>Phí khám dự kiến</Text>
-            <Text style={styles.priceValue}>{servicePrice}</Text>
-          </LinearGradient>
-        </View>
+        {/* ===== PRICE CARD ===== */}
+        <Animated.View entering={ZoomIn.delay(400)} style={styles.priceCard}>
+          <View style={styles.priceHeader}>
+            <Text style={styles.priceLabel}>Phí dịch vụ khám</Text>
+            <Ionicons name="cash-outline" size={24} color="#FFFFFF" />
+          </View>
+          
+          <View style={styles.priceValueContainer}>
+            <Text style={styles.priceCurrency}>VNĐ</Text>
+            <LinearGradient
+              colors={["#FFFFFF", "rgba(255,255,255,0.9)"]}
+              style={styles.priceGradient}
+            >
+              <Text style={styles.priceValue}>{servicePrice}</Text>
+            </LinearGradient>
+          </View>
+          
+          <Text style={styles.priceNote}>* Giá đã bao gồm tất cả phí dịch vụ</Text>
+        </Animated.View>
+
+        {/* ===== TERMS AND CONDITIONS ===== */}
+        <Animated.View entering={FadeInUp.delay(500)} style={styles.termsCard}>
+          <View style={styles.termsHeader}>
+            <Ionicons name="shield-checkmark-outline" size={20} color="#667EEA" />
+            <Text style={styles.termsTitle}>Điều khoản & Lưu ý</Text>
+          </View>
+          
+          <View style={styles.termsList}>
+            <View style={styles.termItem}>
+              <View style={styles.termDot} />
+              <Text style={styles.termText}>
+                Vui lòng đến trước 15 phút để làm thủ tục
+              </Text>
+            </View>
+            <View style={styles.termItem}>
+              <View style={styles.termDot} />
+              <Text style={styles.termText}>
+                Hủy lịch trước 2 giờ nếu không thể đến
+              </Text>
+            </View>
+            <View style={styles.termItem}>
+              <View style={styles.termDot} />
+              <Text style={styles.termText}>
+                Mang theo giấy tờ tùy thân khi đến khám
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
       </ScrollView>
 
-      {/* ===== FOOTER ===== */}
-      <View style={styles.footer}>
+      {/* ===== FOOTER BUTTONS ===== */}
+      <Animated.View entering={FadeInUp.delay(600)} style={styles.footer}>
         <TouchableOpacity
-          style={styles.confirmButton}
+          style={[styles.cancelButton, bookingLoading && styles.disabledButton]}
+          onPress={() => navigation.goBack()}
+          disabled={bookingLoading}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="close-circle-outline" size={20} color="#64748B" />
+          <Text style={styles.cancelButtonText}>Hủy bỏ</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.confirmButton, bookingLoading && styles.disabledButton]}
           onPress={handleBooking}
           disabled={bookingLoading}
+          activeOpacity={0.9}
         >
           <LinearGradient
-            colors={
-              bookingLoading
-                ? ["#9CA3AF", "#9CA3AF"]
-                : ["#3B82F6", "#1E40AF"]
-            }
-            style={styles.gradientButton}
+            colors={bookingLoading ? ["#9CA3AF", "#9CA3AF"] : ["#10B981", "#059669"]}
+            style={styles.confirmButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
           >
             {bookingLoading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.confirmText}>Đặt lịch ngay</Text>
+              <>
+                <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                <Text style={styles.confirmButtonText}>ĐẶT LỊCH NGAY</Text>
+              </>
             )}
           </LinearGradient>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -324,19 +428,25 @@ export default function ConfirmBooking() {
 
 const InfoRow = ({ icon, label, value }) => (
   <View style={styles.infoRow}>
-    <Ionicons name={icon} size={20} color="#4B5563" />
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue}>{value}</Text>
+    <View style={styles.infoIconContainer}>
+      <Ionicons name={icon} size={18} color="#667EEA" />
+    </View>
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
+    </View>
   </View>
 );
 
 const InputGroup = ({ icon, placeholder, value, onChangeText, ...props }) => (
   <View style={styles.inputContainer}>
-    <Ionicons name={icon} size={20} color="#6B7280" style={styles.inputIcon} />
+    <View style={styles.inputIconContainer}>
+      <Ionicons name={icon} size={18} color="#64748B" />
+    </View>
     <TextInput
       style={styles.input}
       placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
+      placeholderTextColor="#94A3B8"
       value={value}
       onChangeText={onChangeText}
       {...props}
@@ -347,97 +457,323 @@ const InputGroup = ({ icon, placeholder, value, onChangeText, ...props }) => (
 /* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
-  scrollContent: { paddingBottom: 120 },
-
+  container: { 
+    flex: 1, 
+    backgroundColor: "#F8FAFC" 
+  },
+  scrollContent: { 
+    paddingBottom: 140 
+  },
   header: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === "ios" ? 55 : 35,
+    paddingBottom: 20,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    backgroundColor: "#fff",
-    elevation: 6,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    height: 44,
   },
-  backButton: { padding: 8, marginRight: 8 },
-  title: { fontSize: 23, fontWeight: "800", color: "#1F2937" },
-
-  card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 18,
-    marginTop: 18,
-    padding: 22,
+  backButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    elevation: 10,
-    shadowColor: "#3B82F6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  title: { 
+    fontSize: 20, 
+    fontWeight: "700", 
+    color: "#FFFFFF",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.9)",
+    textAlign: "center",
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  homeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 28,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: "#F1F5F9",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  cardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
   },
   cardTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#1F2937",
-    marginBottom: 14,
+    color: "#1E293B",
   },
-
-  divider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
-
-  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
-  infoLabel: {
+  divider: { 
+    height: 1.5, 
+    backgroundColor: "#F1F5F9", 
+    marginBottom: 20 
+  },
+  infoRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginBottom: 18 
+  },
+  infoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(102, 126, 234, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  infoContent: {
     flex: 1,
-    marginLeft: 16,
-    color: "#4B5563",
-    fontSize: 15.5,
-    fontWeight: "600",
   },
-  infoValue: { fontWeight: "700", color: "#1F2937", fontSize: 15.5 },
-
+  infoLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  infoValue: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#1E293B" 
+  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    borderRadius: 14,
+    borderColor: "#E2E8F0",
+    borderRadius: 18,
     paddingHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
   },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: "#1F2937", paddingVertical: 14 },
-
-  priceCardContainer: {
-    marginHorizontal: 18,
-    marginTop: 18,
-    marginBottom: 20,
-    borderRadius: 18,
-    overflow: "hidden",
-    elevation: 12,
+  inputIconContainer: {
+    marginRight: 12,
+  },
+  input: { 
+    flex: 1, 
+    fontSize: 16, 
+    color: "#1E293B", 
+    paddingVertical: 16,
+    fontWeight: "500",
+  },
+  noteContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 8,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#64748B",
+    marginLeft: 10,
+    lineHeight: 18,
   },
   priceCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: "#667EEA",
+    borderRadius: 28,
+    padding: 28,
+    shadowColor: "#667EEA",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  priceHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 22,
+    alignItems: "center",
+    marginBottom: 20,
   },
-  priceLabel: { fontSize: 17, color: "#fff", fontWeight: "700" },
-  priceValue: { fontSize: 26, fontWeight: "900", color: "#fff" },
-
+  priceLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  priceValueContainer: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  priceCurrency: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  priceGradient: {
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 24,
+    minWidth: 200,
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#667EEA",
+    textAlign: "center",
+    letterSpacing: 1,
+  },
+  priceNote: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.9)",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  termsCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 30,
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  termsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  termsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 12,
+  },
+  termsList: {
+    gap: 14,
+  },
+  termItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  termDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#667EEA",
+    marginTop: 8,
+    marginRight: 12,
+  },
+  termText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#475569",
+    lineHeight: 22,
+  },
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === "ios" ? 34 : 18,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1.5,
+    borderTopColor: "#F1F5F9",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
     elevation: 15,
+    gap: 16,
   },
-  confirmButton: { borderRadius: 18, overflow: "hidden", elevation: 12 },
-  gradientButton: { padding: 18, alignItems: "center" },
-  confirmText: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  cancelButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    borderRadius: 18,
+    backgroundColor: "#F8FAFC",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  confirmButton: {
+    flex: 2,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  confirmButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    gap: 12,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
 });
